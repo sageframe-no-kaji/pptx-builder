@@ -170,6 +170,13 @@ def place_picture_fill(slide, img_path: Path, slide_w_emu: int, slide_h_emu: int
     pic.width = int(new_w)
     pic.height = int(new_h)
 
+def confirm_overwrite(path: Path, quiet: bool = False, force: bool = False) -> bool:
+    if not path.exists():
+        return True
+    if quiet or force:
+        return True
+    reply = input(f"⚠️  File exists: {path.name}. Overwrite? [y/N]: ").strip().lower()
+    return reply == "y"
 
 def build_presentation(
     images: List[Path],
@@ -226,6 +233,12 @@ def parse_cli_args():
     parser.add_argument(
         "--quiet", action="store_true",
         help="Suppress interactive prompts and non-critical output."
+    )
+
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing PPTX files without confirmation",
     )
 
     return parser.parse_args()
@@ -364,15 +377,21 @@ def main():
                 pages = convert_pdf_to_images(path, dpi=args.dpi)
                 out_name = path.stem + ".pptx"
                 out_path = path.parent / out_name
-                build_presentation(
-                    pages,
-                    output_path=out_path,
-                    slide_width_in=13.3333,
-                    slide_height_in=7.5,
-                    mode="fit"
-                )
-                if not args.quiet:
-                    print(f"✅ Saved: {out_path}")
+
+                # 🔒 Overwrite protection
+                if confirm_overwrite(out_path, quiet=args.quiet):
+                    build_presentation(
+                        pages,
+                        output_path=out_path,
+                        slide_width_in=13.3333,
+                        slide_height_in=7.5,
+                        mode="fit"
+                    )
+                    if not args.quiet:
+                        print(f"✅ Saved: {out_path}")
+                else:
+                    print(f"⏩ Skipped (already exists): {out_path}")
+
             except Exception as e:
                 print(f"✗ Failed to process {path}: {e}")
 
@@ -389,7 +408,6 @@ def main():
 
     if not args.quiet:
         print("\n✅ CLI execution complete.")
-
 
 if __name__ == "__main__":
     main()
