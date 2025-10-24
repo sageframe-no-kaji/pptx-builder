@@ -1,4 +1,9 @@
+# === Sageframe PPTX Builder (image_2_ppt-dev) ===
+# Minimal runtime dependencies for make_ppt.py
+# Use with:  uv pip install -r requirements.txt
+
 python-pptx
 Pillow
-pymupdf
+PyMuPDF
+pdf2image
 pillow-heif
