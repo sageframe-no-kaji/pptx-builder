@@ -89,7 +89,7 @@ def process_files(
 
     # Security: Check file sizes
     for file in files:
-        file_path = Path(file.name)
+        file_path = Path(file.name)  # type: ignore
         if file_path.exists() and file_path.stat().st_size > MAX_FILE_SIZE:
             raise gr.Error(f"File too large: {file_path.name}. Maximum 50MB per file.")
 
@@ -106,7 +106,7 @@ def process_files(
 
         # Process each uploaded file
         for file in files:
-            file_path = Path(file.name)
+            file_path = Path(file.name)  # type: ignore
 
             # Handle PDFs
             if file_path.suffix.lower() == ".pdf":
