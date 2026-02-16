@@ -286,8 +286,11 @@ with gr.Blocks(title="PPTX Builder") as app:
     with gr.Column(elem_id="main-content"):
         gr.Markdown("""
             # PPTX Builder
-            
+
             *Convert PDFs and images to PowerPoint presentations*
+
+            **Supported formats:** PDF, PNG, JPG, JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
+            """)
 
     with gr.Row():
         with gr.Column():
