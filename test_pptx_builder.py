@@ -1,7 +1,7 @@
 """
 Tests for pptx_builder.core
 
-Run with: pytest test_make_ppt.py
+Run with: pytest test_pptx_builder.py
 """
 
 import pytest
