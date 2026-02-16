@@ -287,8 +287,14 @@ with gr.Blocks(title="PPTX Builder") as app:
         # Red gradient header
         gr.HTML("""
         <div class="logo-container">
-
-
+            <div>
+                <h1>PPTX Builder</h1>
+                <p style="margin: 10px 0 0 0; font-style: italic; color: white; font-size: 1.1em;">Convert PDFs and images to PowerPoint presentations</p>
+            </div>
+        </div>
+        """)
+        
+        gr.Markdown("""
             **Supported formats:** PDF, PNG, JPG, JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
             """)
 
