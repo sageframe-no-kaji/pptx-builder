@@ -5,6 +5,7 @@ Run with: pytest test_make_ppt.py
 """
 
 import pytest
+from pptx.util import Emu
 from pptx_builder.core import (
     list_images,
     detect_input_type,
@@ -187,9 +188,9 @@ class TestUtilities:
     def test_emu_to_float_inches_conversion(self):
         """Should correctly convert EMU to inches"""
         # 914400 EMU = 1 inch
-        assert abs(emu_to_float_inches(914400) - 1.0) < 0.001
-        assert abs(emu_to_float_inches(1828800) - 2.0) < 0.001
-        assert abs(emu_to_float_inches(0) - 0.0) < 0.001
+        assert abs(emu_to_float_inches(Emu(914400)) - 1.0) < 0.001
+        assert abs(emu_to_float_inches(Emu(1828800)) - 2.0) < 0.001
+        assert abs(emu_to_float_inches(Emu(0)) - 0.0) < 0.001
 
     def test_confirm_overwrite_force_mode(self, tmp_path):
         """Force mode should always return True"""
