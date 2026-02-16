@@ -284,48 +284,10 @@ input:focus, textarea:focus, select:focus {
 # Create Gradio interface
 with gr.Blocks(title="PPTX Builder") as app:
     with gr.Column(elem_id="main-content"):
-        # Header with logo
-        gr.HTML("""
-            <div class="logo-container">
-                <svg xmlns="http://www.w3.org/2000/svg" \
-                     viewBox="0 0 301 301">
-                  <defs>
-                    <style>
-                      .st0 { fill: #050606; }
-                      .st1 { fill: #ed1e24; }
-                      .st2 { stroke: #000; stroke-linecap: square; \
-stroke-width: 23px; fill: none; stroke-miterlimit: 10; }
-                      .st3 { stroke: #050606; fill: none; \
-stroke-miterlimit: 10; }
-                    </style>
-                  </defs>
-                  <path class="st3" \
-d="M150.5,292.5c-78.3,0-142-63.7-142-142S72.2,8.5,150.5,8.5s142,63.7,\
-142,142-63.7,142-142,142Z"/>
-                  <path class="st0" \
-d="M150.5,0c-40.2,0-78,15.7-106.4,44.1C15.7,72.5,0,110.3,0,150.5s15.7,\
-78,44.1,106.4c28.4,28.4,66.2,44.1,106.4,44.1s78-15.7,106.4-44.1,44.1-66.2,\
-44.1-106.4-15.7-78-44.1-106.4C228.5,15.7,190.7,0,150.5,0h0Z"/>
-                  <path class="st1" \
-d="M150.5,17c73.7,0,133.5,59.8,133.5,133.5s-59.8,133.5-133.5,133.5S17,\
-224.2,17,150.5,76.8,17,150.5,17"/>
-                  <g>
-                    <line class="st2" x1="150.1" y1="33.2" x2="150.1" y2="278.4"/>
-                    <line class="st2" x1="74.7" y1="98" x2="188.2" y2="213.8"/>
-                    <line class="st2" x1="74.7" y1="252.6" x2="150.1" y2="177.3"/>
-                    <line class="st2" x1="150.1" y1="22.6" x2="226.3" y2="98"/>
-                    <line class="st2" x1="74.7" y1="98" x2="150.1" y2="22.6"/>
-                  </g>
-                </svg>
-                <h1>PPTX Builder</h1>
-            </div>
-            """)
-
         gr.Markdown("""
-            Convert PDFs and images to PowerPoint presentations at 150 DPI.
-
-            **Supported formats:** PDF, PNG, JPG, JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
-            """)
+            # PPTX Builder
+            
+            *Convert PDFs and images to PowerPoint presentations*
 
     with gr.Row():
         with gr.Column():
@@ -396,7 +358,7 @@ d="M150.5,17c73.7,0,133.5,59.8,133.5,133.5s-59.8,133.5-133.5,133.5S17,\
     gr.HTML("""
         <div class="footer">
             <p>
-                Created by Andrew Marcus |
+                Created by Andrew T. Marcus |
                 <a href="https://github.com/sageframe-no-kaji" \
 target="_blank">GitHub</a> |
                 <a href="https://github.com/sageframe-no-kaji/pptx-builder" \
