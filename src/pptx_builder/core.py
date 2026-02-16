@@ -117,9 +117,7 @@ def prompt_fit_mode() -> str:
 
 def list_images(folder: Path) -> List[Path]:
     """Return sorted list of image files with allowed extensions (case-insensitive)."""
-    files = [
-        p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in ALLOWED_EXTS
-    ]
+    files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in ALLOWED_EXTS]
     # Sort case-insensitively by filename
     files.sort(key=lambda p: p.name.lower())
     return files
@@ -216,9 +214,7 @@ def build_presentation(
     sh_emu = int(prs.slide_height)  # type: ignore[arg-type]
 
     # Create slides with optional progress bar
-    image_iter = (
-        tqdm(images, desc="Building slides", unit="slide") if show_progress else images
-    )
+    image_iter = tqdm(images, desc="Building slides", unit="slide") if show_progress else images
     for img in image_iter:
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
         if mode == "fit":
@@ -313,9 +309,7 @@ def convert_pdf_to_images(pdf_path: Path, dpi: int) -> List[Path]:
 
     logger.debug(f"Starting PDF conversion: {pdf_path}")
     logger.debug(f"PDF exists: {pdf_path.exists()}")
-    logger.debug(
-        f"PDF size: {pdf_path.stat().st_size if pdf_path.exists() else 'N/A'}"
-    )
+    logger.debug(f"PDF size: {pdf_path.stat().st_size if pdf_path.exists() else 'N/A'}")
 
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_pdf_"))
     logger.debug(f"Created temp dir: {temp_dir}")
@@ -435,15 +429,9 @@ def main():
 
     # Configure logging based on verbose flag
     if args.verbose:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(levelname)s: %(message)s"
-        )
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
     else:
-        logging.basicConfig(
-            level=logging.WARNING,
-            format="%(levelname)s: %(message)s"
-        )
+        logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     # Validate --output usage
     if args.output and args.input and len(args.input) > 1:
@@ -481,11 +469,7 @@ def main():
         file_type = "PDF file" if kind == "pdf" else "Image folder"
         print(f"  Type  : {file_type}")
         print(f'  Slide size: {width_in:.2f}" x {height_in:.2f}"')
-        placement = (
-            "Fit whole image (no crop)"
-            if mode == "fit"
-            else "Crop to fill (no whitespace)"
-        )
+        placement = "Fit whole image (no crop)" if mode == "fit" else "Crop to fill (no whitespace)"
         print(f"  Placement : {placement}")
         print(f"  Output file: {output_path}\n")
 
@@ -593,9 +577,7 @@ def main():
             if not args.quiet:
                 print(f"🗂️  [CLI] Processing folder: {path}")
             try:
-                process_folder(
-                    path, recursive=args.recursive, dpi=args.dpi, quiet=args.quiet
-                )
+                process_folder(path, recursive=args.recursive, dpi=args.dpi, quiet=args.quiet)
             except Exception as e:
                 print(f"✗ Folder failed: {path} ({e})")
 

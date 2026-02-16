@@ -113,9 +113,7 @@ def process_files(
         # Auto-detect aspect ratio for single PDF
         if len(files) == 1 and Path(files[0]).suffix.lower() == ".pdf":
             width_in, height_in = pdf_first_page_size_inches(Path(files[0]))
-            logger.debug(
-                f"Auto-detected PDF aspect ratio: {width_in:.2f}x{height_in:.2f}"
-            )
+            logger.debug(f"Auto-detected PDF aspect ratio: {width_in:.2f}x{height_in:.2f}")
 
         mode = "fit" if fit_mode == "Fit whole image" else "fill"
         logger.debug(f"Slide size: {width_in}x{height_in}, mode: {mode}")
