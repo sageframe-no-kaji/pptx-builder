@@ -15,19 +15,16 @@ import time
 from make_ppt import (
     build_presentation,
     convert_pdf_to_images,
-    pdf_first_page_size_inches,
-    SLIDE_SIZES,
 )
-
 
 # Slide size options for dropdown
 SLIDE_SIZE_OPTIONS = {
     "16:9 (Widescreen)": (13.3333333333, 7.5),
     "4:3 (Standard)": (10.0, 7.5),
-    "Letter (11\" x 8.5\")": (11.0, 8.5),
-    "A4 (11.69\" x 8.27\")": (11.69, 8.27),
-    "Legal (14\" x 8.5\")": (14.0, 8.5),
-    "Tabloid (17\" x 11\")": (17.0, 11.0),
+    'Letter (11" x 8.5")': (11.0, 8.5),
+    'A4 (11.69" x 8.27")': (11.69, 8.27),
+    'Legal (14" x 8.5")': (14.0, 8.5),
+    'Tabloid (17" x 11")': (17.0, 11.0),
 }
 
 # Security limits
@@ -35,7 +32,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
 MAX_FILES = 100  # Max 100 files per upload
 
 # Track temp directories for cleanup
-TEMP_DIRS = []
+TEMP_DIRS: List[Path] = []
 
 
 def cleanup_temp_files():
@@ -67,7 +64,7 @@ def process_files(
     slide_size: str,
     fit_mode: str,
     dpi: int = 150,
-    output_name: str = ""
+    output_name: str = "",
 ) -> Optional[str]:
     """
     Process uploaded files and create PowerPoint presentation.
@@ -118,14 +115,14 @@ def process_files(
 
             # Handle PDFs
             if file_path.suffix.lower() == ".pdf":
-                print(f"[DEBUG] Converting PDF at {dpi} DPI")
+                print("[DEBUG] Converting PDF at {} DPI".format(dpi))
                 # Convert PDF to images
                 pdf_images = convert_pdf_to_images(file_path, dpi=dpi)
                 print(f"[DEBUG] Got {len(pdf_images)} images from PDF")
                 image_files.extend(pdf_images)
             else:
                 # Direct image files
-                print(f"[DEBUG] Adding image file directly")
+                print("[DEBUG] Adding image file directly")
                 image_files.append(file_path)
 
         if not image_files:
@@ -158,14 +155,15 @@ def process_files(
             output_path=output_path,
             slide_width_in=width_in,
             slide_height_in=height_in,
-            mode=mode
+            mode=mode,
         )
 
-        print(f"[DEBUG] Presentation created successfully")
+        print("[DEBUG] Presentation created successfully")
         return str(output_path)
 
     except Exception as e:
         import traceback
+
         print(f"[ERROR] Exception occurred: {e}")
         print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
         raise gr.Error(f"Error: {str(e)}")
@@ -274,21 +272,30 @@ input:focus, textarea:focus, select:focus {
 with gr.Blocks(title="PPTX Builder - Tyro Sageframe") as app:
     with gr.Column(elem_id="main-content"):
         # Header with logo
-        gr.HTML(
-            """
+        gr.HTML("""
             <div class="logo-container">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 301 301">
+                <svg xmlns="http://www.w3.org/2000/svg" \
+                     viewBox="0 0 301 301">
                   <defs>
                     <style>
                       .st0 { fill: #050606; }
                       .st1 { fill: #ed1e24; }
-                      .st2 { stroke: #000; stroke-linecap: square; stroke-width: 23px; fill: none; stroke-miterlimit: 10; }
-                      .st3 { stroke: #050606; fill: none; stroke-miterlimit: 10; }
+                      .st2 { stroke: #000; stroke-linecap: square; \
+stroke-width: 23px; fill: none; stroke-miterlimit: 10; }
+                      .st3 { stroke: #050606; fill: none; \
+stroke-miterlimit: 10; }
                     </style>
                   </defs>
-                  <path class="st3" d="M150.5,292.5c-78.3,0-142-63.7-142-142S72.2,8.5,150.5,8.5s142,63.7,142,142-63.7,142-142,142Z"/>
-                  <path class="st0" d="M150.5,0c-40.2,0-78,15.7-106.4,44.1C15.7,72.5,0,110.3,0,150.5s15.7,78,44.1,106.4c28.4,28.4,66.2,44.1,106.4,44.1s78-15.7,106.4-44.1,44.1-66.2,44.1-106.4-15.7-78-44.1-106.4C228.5,15.7,190.7,0,150.5,0h0Z"/>
-                  <path class="st1" d="M150.5,17c73.7,0,133.5,59.8,133.5,133.5s-59.8,133.5-133.5,133.5S17,224.2,17,150.5,76.8,17,150.5,17"/>
+                  <path class="st3" \
+d="M150.5,292.5c-78.3,0-142-63.7-142-142S72.2,8.5,150.5,8.5s142,63.7,\
+142,142-63.7,142-142,142Z"/>
+                  <path class="st0" \
+d="M150.5,0c-40.2,0-78,15.7-106.4,44.1C15.7,72.5,0,110.3,0,150.5s15.7,\
+78,44.1,106.4c28.4,28.4,66.2,44.1,106.4,44.1s78-15.7,106.4-44.1,44.1-66.2,\
+44.1-106.4-15.7-78-44.1-106.4C228.5,15.7,190.7,0,150.5,0h0Z"/>
+                  <path class="st1" \
+d="M150.5,17c73.7,0,133.5,59.8,133.5,133.5s-59.8,133.5-133.5,133.5S17,\
+224.2,17,150.5,76.8,17,150.5,17"/>
                   <g>
                     <line class="st2" x1="150.1" y1="33.2" x2="150.1" y2="278.4"/>
                     <line class="st2" x1="74.7" y1="98" x2="188.2" y2="213.8"/>
@@ -299,16 +306,13 @@ with gr.Blocks(title="PPTX Builder - Tyro Sageframe") as app:
                 </svg>
                 <h1>PPTX Builder</h1>
             </div>
-            """
-        )
+            """)
 
-        gr.Markdown(
-            """
+        gr.Markdown("""
             Convert PDFs and images to PowerPoint presentations at 150 DPI.
 
             **Supported formats:** PDF, PNG, JPG, JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
-            """
-        )
+            """)
 
     with gr.Row():
         with gr.Column():
@@ -316,35 +320,41 @@ with gr.Blocks(title="PPTX Builder - Tyro Sageframe") as app:
                 label="Upload PDF or Images",
                 file_count="multiple",
                 file_types=[
-                    ".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff",
-                    ".webp", ".bmp", ".gif", ".ico", ".heic", ".heif"
-                ]
+                    ".pdf",
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".tif",
+                    ".tiff",
+                    ".webp",
+                    ".bmp",
+                    ".gif",
+                    ".ico",
+                    ".heic",
+                    ".heif",
+                ],
             )
 
             slide_size = gr.Dropdown(
                 choices=list(SLIDE_SIZE_OPTIONS.keys()),
                 value="16:9 (Widescreen)",
-                label="Slide Size"
+                label="Slide Size",
             )
 
             fit_mode = gr.Radio(
                 choices=["Fit whole image", "Crop to fill"],
                 value="Fit whole image",
-                label="Image Placement"
+                label="Image Placement",
             )
 
             dpi = gr.Slider(
-                minimum=150,
-                maximum=600,
-                value=150,
-                step=50,
-                label="PDF Conversion DPI"
+                minimum=150, maximum=600, value=150, step=50, label="PDF Conversion DPI"
             )
 
             output_name = gr.Textbox(
                 label="Output Filename (optional)",
                 placeholder="Leave empty to use input filename",
-                value=""
+                value="",
             )
 
             submit_btn = gr.Button("Create Presentation", variant="primary")
@@ -352,8 +362,7 @@ with gr.Blocks(title="PPTX Builder - Tyro Sageframe") as app:
         with gr.Column():
             output = gr.File(label="Download PPTX")
 
-            gr.Markdown(
-                """
+            gr.Markdown("""
                 ### How it works:
                 1. Upload one or more PDFs or images
                 2. Choose slide size and placement mode
@@ -361,28 +370,27 @@ with gr.Blocks(title="PPTX Builder - Tyro Sageframe") as app:
                 4. Download your PPTX file
 
                 **Note:** Temp files are cleaned up automatically after 1 hour.
-                """
-            )
+                """)
 
     # Connect interface
     submit_btn.click(
         fn=process_files,
         inputs=[files, slide_size, fit_mode, dpi, output_name],
-        outputs=output
+        outputs=output,
     )
 
     # Footer with branding
-    gr.HTML(
-        """
+    gr.HTML("""
         <div class="footer">
             <p>
                 Created by <strong>Tyro Sageframe</strong> |
-                <a href="https://github.com/sageframe-no-kaji" target="_blank">GitHub</a> |
-                <a href="https://github.com/sageframe-no-kaji/pptx-builder" target="_blank">Source Code</a>
+                <a href="https://github.com/sageframe-no-kaji" \
+target="_blank">GitHub</a> |
+                <a href="https://github.com/sageframe-no-kaji/pptx-builder" \
+target="_blank">Source Code</a>
             </p>
         </div>
-        """
-    )
+        """)
 
 if __name__ == "__main__":
     # Clean up old files on startup
@@ -393,5 +401,5 @@ if __name__ == "__main__":
         server_port=7860,
         share=False,
         allowed_paths=[str(Path(__file__).parent)],
-        css=custom_css
+        css=custom_css,
     )

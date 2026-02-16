@@ -5,14 +5,14 @@ Run with: pytest test_make_ppt.py
 """
 
 import pytest
-from pathlib import Path
-import tempfile
-import shutil
 from make_ppt import (
     list_images,
     detect_input_type,
+    confirm_overwrite,
+    emu_to_float_inches,
+    build_presentation,
     ALLOWED_EXTS,
-    SLIDE_SIZES
+    SLIDE_SIZES,
 )
 
 
@@ -128,11 +128,10 @@ class TestIntegration:
     def test_create_simple_presentation(self, tmp_path):
         """End-to-end test creating a simple presentation"""
         from PIL import Image
-        from make_ppt import build_presentation
 
         # Create test image
         img_path = tmp_path / "test.png"
-        img = Image.new('RGB', (100, 100), color='red')
+        img = Image.new("RGB", (100, 100), color="red")
         img.save(img_path)
 
         # Create presentation
@@ -142,11 +141,144 @@ class TestIntegration:
             output_path=output,
             slide_width_in=10.0,
             slide_height_in=7.5,
-            mode="fit"
+            mode="fit",
         )
 
         assert output.exists()
         assert output.stat().st_size > 0
+
+    @pytest.mark.integration
+    def test_multiple_images_presentation(self, tmp_path):
+        """Test creating presentation with multiple images"""
+        from PIL import Image
+
+        # Create multiple test images
+        images = []
+        for i, color in enumerate(["red", "green", "blue"]):
+            img_path = tmp_path / f"image_{i}.png"
+            img = Image.new("RGB", (100, 100), color=color)
+            img.save(img_path)
+            images.append(img_path)
+
+        # Create presentation
+        output = tmp_path / "multi.pptx"
+        build_presentation(
+            images=images,
+            output_path=output,
+            slide_width_in=10.0,
+            slide_height_in=7.5,
+            mode="fill",
+        )
+
+        assert output.exists()
+        assert output.stat().st_size > 0
+
+    @pytest.mark.integration
+    def test_heic_format_supported(self, tmp_path):
+        """Test that HEIC format is in allowed extensions"""
+        # HEIC requires pillow-heif which might not be installed
+        # Just test that it's in the allowed list
+        assert ".heic" in ALLOWED_EXTS or ".heif" in ALLOWED_EXTS
+
+
+class TestUtilities:
+    """Test utility functions"""
+
+    def test_emu_to_float_inches_conversion(self):
+        """Should correctly convert EMU to inches"""
+        # 914400 EMU = 1 inch
+        assert abs(emu_to_float_inches(914400) - 1.0) < 0.001
+        assert abs(emu_to_float_inches(1828800) - 2.0) < 0.001
+        assert abs(emu_to_float_inches(0) - 0.0) < 0.001
+
+    def test_confirm_overwrite_force_mode(self, tmp_path):
+        """Force mode should always return True"""
+        existing_file = tmp_path / "existing.pptx"
+        existing_file.touch()
+
+        assert confirm_overwrite(existing_file, force=True) is True
+
+    def test_confirm_overwrite_quiet_mode(self, tmp_path):
+        """Quiet mode with existing file should not prompt (returns True)"""
+        existing_file = tmp_path / "existing.pptx"
+        existing_file.touch()
+
+        assert confirm_overwrite(existing_file, quiet=True) is True
+
+    def test_confirm_overwrite_nonexistent_file(self, tmp_path):
+        """Non-existent file should always return True"""
+        nonexistent = tmp_path / "new_file.pptx"
+
+        assert confirm_overwrite(nonexistent, quiet=True) is True
+        assert confirm_overwrite(nonexistent, force=True) is True
+
+
+class TestBuildPresentation:
+    """Test presentation building functionality"""
+
+    @pytest.mark.integration
+    def test_build_presentation_fit_mode(self, tmp_path):
+        """Test presentation building with fit mode"""
+        from PIL import Image
+
+        img_path = tmp_path / "test.png"
+        img = Image.new("RGB", (200, 100), color="blue")
+        img.save(img_path)
+
+        output = tmp_path / "fit_test.pptx"
+        build_presentation(
+            images=[img_path],
+            output_path=output,
+            slide_width_in=10.0,
+            slide_height_in=7.5,
+            mode="fit",
+        )
+
+        assert output.exists()
+        # PPTX should have reasonable minimum size
+        assert output.stat().st_size > 10000
+
+    @pytest.mark.integration
+    def test_build_presentation_fill_mode(self, tmp_path):
+        """Test presentation building with fill mode"""
+        from PIL import Image
+
+        img_path = tmp_path / "test.png"
+        img = Image.new("RGB", (300, 200), color="green")
+        img.save(img_path)
+
+        output = tmp_path / "fill_test.pptx"
+        build_presentation(
+            images=[img_path],
+            output_path=output,
+            slide_width_in=10.0,
+            slide_height_in=7.5,
+            mode="fill",
+        )
+
+        assert output.exists()
+        assert output.stat().st_size > 10000
+
+    @pytest.mark.integration
+    def test_build_presentation_custom_dimensions(self, tmp_path):
+        """Test presentation with custom slide dimensions"""
+        from PIL import Image
+
+        img_path = tmp_path / "test.png"
+        img = Image.new("RGB", (100, 100), color="yellow")
+        img.save(img_path)
+
+        # Test A4 size
+        output = tmp_path / "a4_test.pptx"
+        build_presentation(
+            images=[img_path],
+            output_path=output,
+            slide_width_in=11.69,
+            slide_height_in=8.27,
+            mode="fit",
+        )
+
+        assert output.exists()
 
 
 if __name__ == "__main__":

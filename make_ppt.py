@@ -28,25 +28,33 @@ from typing import Tuple, List
 from pptx import Presentation
 from pptx.util import Inches, Emu
 
-
 # -----------------------------
 # Slide size presets (in inches)
 # -----------------------------
 SLIDE_SIZES = {
-    "1": ("16:9 (13.33\" x 7.5\")", 13.3333333333, 7.5),
-    "2": ("4:3  (10\" x 7.5\")", 10.0, 7.5),
-    "3": ("Letter  (11\" x 8.5\")", 11.0, 8.5),
-    "4": ("A4      (11.69\" x 8.27\")", 11.69, 8.27),
-    "5": ("Legal   (14\" x 8.5\")", 14.0, 8.5),
-    "6": ("Tabloid (17\" x 11\")", 17.0, 11.0),
+    "1": ('16:9 (13.33" x 7.5")', 13.3333333333, 7.5),
+    "2": ('4:3  (10" x 7.5")', 10.0, 7.5),
+    "3": ('Letter  (11" x 8.5")', 11.0, 8.5),
+    "4": ('A4      (11.69" x 8.27")', 11.69, 8.27),
+    "5": ('Legal   (14" x 8.5")', 14.0, 8.5),
+    "6": ('Tabloid (17" x 11")', 17.0, 11.0),
 }
 
 # -----------------------------
 # File extensions we will accept
 # -----------------------------
 ALLOWED_EXTS = {
-    ".png", ".jpg", ".jpeg", ".tif", ".tiff",
-    ".webp", ".bmp", ".gif", ".ico", ".heic", ".heif"
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+    ".webp",
+    ".bmp",
+    ".gif",
+    ".ico",
+    ".heic",
+    ".heif",
 }
 
 
@@ -104,7 +112,9 @@ def prompt_fit_mode() -> str:
 
 def list_images(folder: Path) -> List[Path]:
     """Return sorted list of image files with allowed extensions (case-insensitive)."""
-    files = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in ALLOWED_EXTS]
+    files = [
+        p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in ALLOWED_EXTS
+    ]
     # Sort case-insensitively by filename
     files.sort(key=lambda p: p.name.lower())
     return files
@@ -174,16 +184,12 @@ def place_picture_fill(slide, img_path: Path, slide_w_emu: int, slide_h_emu: int
     pic.height = int(new_h)
 
 
-def confirm_overwrite(
-    path: Path, quiet: bool = False, force: bool = False
-) -> bool:
+def confirm_overwrite(path: Path, quiet: bool = False, force: bool = False) -> bool:
     if not path.exists():
         return True
     if quiet or force:
         return True
-    reply = input(
-        f"⚠️  File exists: {path.name}. Overwrite? [y/N]: "
-    ).strip().lower()
+    reply = input(f"⚠️  File exists: {path.name}. Overwrite? [y/N]: ").strip().lower()
     return reply == "y"
 
 
@@ -192,7 +198,7 @@ def build_presentation(
     output_path: Path,
     slide_width_in: float,
     slide_height_in: float,
-    mode: str
+    mode: str,
 ) -> None:
     """Create the PPTX."""
     prs = Presentation()
@@ -222,27 +228,32 @@ def parse_cli_args():
     """Parse command-line arguments for batch, recursive, or quiet runs."""
     parser = argparse.ArgumentParser(
         prog="make_ppt.py",
-        description="Build PowerPoint (.pptx) files from PDFs or image folders."
+        description="Build PowerPoint (.pptx) files from PDFs or image folders.",
     )
 
     parser.add_argument(
-        "-i", "--input", nargs="+", metavar="PATH",
-        help="Path(s) to one or more PDFs, images, or folders to process."
+        "-i",
+        "--input",
+        nargs="+",
+        metavar="PATH",
+        help="Path(s) to one or more PDFs, images, or folders to process.",
     )
 
     parser.add_argument(
-        "-r", "--recursive", action="store_true",
-        help="Recurse into subfolders when processing folders."
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="Recurse into subfolders when processing folders.",
     )
 
     parser.add_argument(
-        "--dpi", type=int, default=300,
-        help="DPI for PDF rendering (default: 300)."
+        "--dpi", type=int, default=300, help="DPI for PDF rendering (default: 300)."
     )
 
     parser.add_argument(
-        "--quiet", action="store_true",
-        help="Suppress interactive prompts and non-critical output."
+        "--quiet",
+        action="store_true",
+        help="Suppress interactive prompts and non-critical output.",
     )
 
     parser.add_argument(
@@ -252,7 +263,8 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         metavar="NAME",
         help="Output filename (with or without .pptx extension). Only valid for single input.",
     )
@@ -283,7 +295,9 @@ def convert_pdf_to_images(pdf_path: Path, dpi: int) -> List[Path]:
 
     print(f"[DEBUG make_ppt] Starting PDF conversion: {pdf_path}")
     print(f"[DEBUG make_ppt] PDF exists: {pdf_path.exists()}")
-    print(f"[DEBUG make_ppt] PDF size: {pdf_path.stat().st_size if pdf_path.exists() else 'N/A'}")
+    print(
+        f"[DEBUG make_ppt] PDF size: {pdf_path.stat().st_size if pdf_path.exists() else 'N/A'}"
+    )
 
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_pdf_"))
     print(f"[DEBUG make_ppt] Created temp dir: {temp_dir}")
@@ -306,6 +320,7 @@ def convert_pdf_to_images(pdf_path: Path, dpi: int) -> List[Path]:
         # Clean up temp directory on failure
         import shutil
         import traceback
+
         print(f"[ERROR make_ppt] PDF conversion failed: {e}")
         print(f"[ERROR make_ppt] Traceback:\n{traceback.format_exc()}")
         if temp_dir.exists():
@@ -319,6 +334,7 @@ def pdf_first_page_size_inches(pdf_path: Path) -> Tuple[float, float]:
     Uses 72 PDF points per inch via PyMuPDF (fitz).
     """
     import fitz  # PyMuPDF
+
     with fitz.open(pdf_path) as doc:
         if doc.page_count == 0:
             # safe fallback to 16:9 if something is odd
@@ -329,9 +345,7 @@ def pdf_first_page_size_inches(pdf_path: Path) -> Tuple[float, float]:
         return (w_in, h_in)
 
 
-def process_folder(
-    folder: Path, recursive: bool, dpi: int, quiet: bool
-) -> None:
+def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None:
     """Process all PDFs and/or images in a folder into PPTX files."""
     pdfs = sorted(folder.glob("*.pdf"))
     imgs = [p for p in folder.iterdir() if p.suffix.lower() in ALLOWED_EXTS]
@@ -374,8 +388,12 @@ def process_folder(
 
             # Detect aspect ratio from first image
             from PIL import Image
+
             with Image.open(imgs[0]) as im:
-                w_in, h_in = im.width / 96, im.height / 96  # assume 96 DPI if not embedded
+                w_in, h_in = (
+                    im.width / 96,
+                    im.height / 96,
+                )  # assume 96 DPI if not embedded
                 # normalize: ensure landscape orientation for convenience
                 if w_in < h_in:
                     w_in, h_in = h_in, w_in
@@ -384,6 +402,7 @@ def process_folder(
 
 
 # ===[ MAIN ENTRYPOINT ]============================================
+
 
 def main():
     """Entry point for make_ppt.py — supports CLI or interactive use."""
@@ -422,12 +441,13 @@ def main():
 
         print("\nSummary:")
         print(f"  Source: {in_path}")
-        file_type = 'PDF file' if kind == 'pdf' else 'Image folder'
+        file_type = "PDF file" if kind == "pdf" else "Image folder"
         print(f"  Type  : {file_type}")
-        print(f"  Slide size: {width_in:.2f}\" x {height_in:.2f}\"")
+        print(f'  Slide size: {width_in:.2f}" x {height_in:.2f}"')
         placement = (
-            'Fit whole image (no crop)' if mode == 'fit'
-            else 'Crop to fill (no whitespace)'
+            "Fit whole image (no crop)"
+            if mode == "fit"
+            else "Crop to fill (no whitespace)"
         )
         print(f"  Placement : {placement}")
         print(f"  Output file: {output_path}\n")
@@ -444,7 +464,7 @@ def main():
                     output_path=output_path,
                     slide_width_in=width_in,
                     slide_height_in=height_in,
-                    mode=mode
+                    mode=mode,
                 )
             else:
                 images = list_images(in_path)
@@ -456,7 +476,7 @@ def main():
                     output_path=output_path,
                     slide_width_in=width_in,
                     slide_height_in=height_in,
-                    mode=mode
+                    mode=mode,
                 )
         except Exception as e:
             print(f"✗ Failed to create presentation: {e}")
@@ -465,6 +485,7 @@ def main():
             # Clean up temporary PDF conversion files
             if temp_dir and temp_dir.exists():
                 import shutil
+
                 try:
                     shutil.rmtree(temp_dir)
                 except Exception:
@@ -503,18 +524,16 @@ def main():
 
                 # 🔒 Overwrite protection
                 w_in, h_in = pdf_first_page_size_inches(path)
-                if confirm_overwrite(
-                    out_path, quiet=args.quiet, force=args.force
-                ):
+                if confirm_overwrite(out_path, quiet=args.quiet, force=args.force):
                     build_presentation(
                         pages,
                         output_path=out_path,
                         slide_width_in=w_in,
                         slide_height_in=h_in,
-                        mode="fit"
+                        mode="fit",
                     )
                     if not args.quiet:
-                        print(f"✅ Saved: {out_path} ({w_in:.2f}\" × {h_in:.2f}\")")
+                        print(f'✅ Saved: {out_path} ({w_in:.2f}" × {h_in:.2f}")')
                 else:
                     print(f"⏩ Skipped (already exists): {out_path}")
 
@@ -524,6 +543,7 @@ def main():
                 # Clean up temp files
                 if temp_dir and temp_dir.exists():
                     import shutil
+
                     try:
                         shutil.rmtree(temp_dir)
                     except Exception:
@@ -533,7 +553,9 @@ def main():
             if not args.quiet:
                 print(f"🗂️  [CLI] Processing folder: {path}")
             try:
-                process_folder(path, recursive=args.recursive, dpi=args.dpi, quiet=args.quiet)
+                process_folder(
+                    path, recursive=args.recursive, dpi=args.dpi, quiet=args.quiet
+                )
             except Exception as e:
                 print(f"✗ Folder failed: {path} ({e})")
 
