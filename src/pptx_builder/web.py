@@ -51,7 +51,7 @@ def cleanup_temp_files():
 
 def cleanup_old_files():
     """Remove temp directories older than 1 hour."""
-    temp_base = Path("/tmp")
+    temp_base = Path(tempfile.gettempdir())
     current_time = time.time()
 
     for item in temp_base.glob("pptx_builder_*"):
@@ -102,7 +102,7 @@ def process_files(
             raise gr.Error(f"File too large: {file_path.name}. Maximum 50MB per file.")
 
     # Create temp directory for processing
-    temp_dir = Path(tempfile.mkdtemp(prefix="pptx_builder_", dir="/tmp"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="pptx_builder_"))
     TEMP_DIRS.append(temp_dir)
     logger.debug(f"Created temp dir: {temp_dir}")
 
