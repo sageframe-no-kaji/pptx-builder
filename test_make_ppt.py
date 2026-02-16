@@ -1,11 +1,11 @@
 """
-Tests for make_ppt.py
+Tests for pptx_builder.core
 
 Run with: pytest test_make_ppt.py
 """
 
 import pytest
-from make_ppt import (
+from pptx_builder.core import (
     list_images,
     detect_input_type,
     confirm_overwrite,
