@@ -5,7 +5,7 @@ make_ppt.py
 -----------
 Create a PowerPoint (.pptx) from a folder of images or PDF files.
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 
 Features:
     - Prompts for source folder and output filename.
