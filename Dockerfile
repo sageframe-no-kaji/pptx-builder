@@ -8,17 +8,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy only pyproject.toml first for dependency caching
+COPY pyproject.toml .
 
-# Install Gradio
-RUN pip install --no-cache-dir gradio>=4.0.0
+# Create minimal package structure for dependency installation
+RUN mkdir -p src/pptx_builder && \
+    touch src/pptx_builder/__init__.py
 
-# Copy application files
-COPY make_ppt.py .
-COPY app.py .
-COPY sageframe-github.svg .
+# Install dependencies (this layer will be cached)
+RUN pip install --no-cache-dir .[web]
+
+# Now copy actual source code
+COPY src/ src/
+
+# Reinstall package (fast, dependencies already cached)
+RUN pip install --no-cache-dir --force-reinstall --no-deps .[web]
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \
@@ -34,5 +38,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose Gradio port
 EXPOSE 7860
 
-# Run the Gradio app
-CMD ["python", "-u", "app.py"]
+# Run the Gradio web interface
+CMD ["python", "-u", "-m", "pptx_builder.web"]

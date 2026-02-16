@@ -1,0 +1,258 @@
+.TH PPTX-BUILDER 1 "February 2026" "Version 0.1.0" "User Commands"
+.SH NAME
+pptx\-builder \- convert PDFs and images to PowerPoint presentations
+.SH SYNOPSIS
+.B pptx-builder
+[\fB\-i\fR \fIPATH\fR ...]
+[\fB\-o\fR \fINAME\fR]
+[\fB\-r\fR]
+[\fB\-\-dpi\fR \fIDPI\fR]
+[\fB\-\-quiet\fR]
+[\fB\-\-force\fR]
+[\fB\-h\fR]
+.SH DESCRIPTION
+.B pptx-builder
+converts PDF documents and image files into PowerPoint (.pptx) presentations at configurable DPI settings. Each PDF page or image becomes a slide, automatically sized and positioned according to user preferences.
+
+The tool supports both interactive and non-interactive (CLI) modes. In interactive mode, prompts guide you through input selection, slide sizing, and image placement options. In CLI mode, sensible defaults are applied for batch processing.
+
+.SH OPTIONS
+.TP
+.BR \-i ", " \-\-input " " \fIPATH\fR...
+Specify one or more input paths. Can be:
+.RS
+.IP \(bu 3
+PDF files (.pdf)
+.IP \(bu 3
+Image files (.png, .jpg, .jpeg, .tiff, .webp, .bmp, .gif, .ico, .heic, .heif)
+.IP \(bu 3
+Folders containing images
+.RE
+.IP
+If omitted, enters interactive mode.
+
+.TP
+.BR \-o ", " \-\-output " " \fINAME\fR
+Specify custom output filename (with or without .pptx extension).
+.B Only valid when processing a single input file.
+If not specified, output filename is derived from input filename.
+
+.TP
+.BR \-r ", " \-\-recursive
+When processing folders, recursively process all subfolders.
+
+.TP
+.BR \-\-dpi " " \fIDPI\fR
+DPI (dots per inch) for PDF rendering. Default: 300.
+Higher values produce sharper images but larger files and slower processing.
+Recommended range: 150-600.
+
+.TP
+.BR \-\-quiet
+Suppress interactive prompts and non-critical output. Uses default settings:
+.RS
+.IP \(bu 3
+Slide size: Detected from first PDF page or image
+.IP \(bu 3
+Image placement: Fit (no cropping)
+.IP \(bu 3
+All existing files are skipped unless \fB\-\-force\fR is used
+.RE
+
+.TP
+.BR \-\-force
+Overwrite existing .pptx files without confirmation.
+
+.TP
+.BR \-h ", " \-\-help
+Display help message and exit.
+
+.SH EXAMPLES
+.SS Interactive Mode
+.nf
+.B python make_ppt.py
+.fi
+Launches interactive mode with prompts for all options.
+
+.SS Convert Single PDF
+.nf
+.B python make_ppt.py \-i document.pdf
+.fi
+Creates \fIdocument.pptx\fR from \fIdocument.pdf\fR with default settings (300 DPI).
+
+.SS Convert with Custom Output Name
+.nf
+.B python make_ppt.py \-i lecture_notes.pdf \-o slides.pptx
+.fi
+Creates \fIslides.pptx\fR from \fIlecture_notes.pdf\fR.
+
+.SS Convert at Higher DPI
+.nf
+.B python make_ppt.py \-i document.pdf \-\-dpi 600
+.fi
+Creates presentation with high-quality 600 DPI rendering.
+
+.SS Convert Folder of Images
+.nf
+.B python make_ppt.py \-i ~/Pictures/screenshots/
+.fi
+Converts all supported images in the folder to a presentation.
+
+.SS Batch Convert Multiple PDFs
+.nf
+.B python make_ppt.py \-i file1.pdf file2.pdf file3.pdf \-\-quiet \-\-force
+.fi
+Silently converts all PDFs, overwriting existing output files.
+
+.SS Recursive Folder Processing
+.nf
+.B python make_ppt.py \-i ~/Documents \-r \-\-quiet
+.fi
+Processes all PDFs and image folders in ~/Documents and subdirectories.
+
+.SH IMAGE PLACEMENT MODES
+.TP
+.B Fit (default)
+Scale image proportionally to fit entirely within the slide. May show background bars (letterbox/pillarbox) if aspect ratios differ. No cropping occurs.
+
+.TP
+.B Fill
+Scale image to completely fill the slide with no whitespace. May crop edges if aspect ratios differ. Ensures no background shows.
+
+.SH SUPPORTED FORMATS
+.SS Input Formats
+.TP
+.B PDF
+Multi-page PDF documents. Each page becomes a slide. Requires \fBpoppler-utils\fR (pdftoppm).
+
+.TP
+.B Images
+PNG, JPG/JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
+.br
+All images are converted to slides. HEIC/HEIF require \fBpillow-heif\fR library.
+
+.SS Output Format
+.B PowerPoint Open XML (.pptx)
+.br
+Compatible with Microsoft PowerPoint 2007+, LibreOffice Impress, Google Slides, and other presentation software.
+
+.SH SLIDE SIZES
+Interactive mode allows selection from common presentation sizes:
+.TP
+.B 16:9 (Widescreen)
+13.333" × 7.5" - Default for modern displays
+.TP
+.B 4:3 (Standard)
+10.0" × 7.5" - Traditional aspect ratio
+.TP
+.B Letter
+11.0" × 8.5" - US Letter paper size
+.TP
+.B A4
+11.69" × 8.27" - International A4 paper
+.TP
+.B Legal
+14.0" × 8.5" - US Legal paper size
+.TP
+.B Tabloid
+17.0" × 11.0" - Large format
+
+.PP
+CLI mode auto-detects slide size from first PDF page or image dimensions.
+
+.SH TEMPORARY FILES
+PDF conversion creates temporary PNG files in \fB/tmp/pptx_pdf_*\fR directories.
+These are automatically cleaned up after presentation creation.
+
+.SH EXIT STATUS
+.TP
+.B 0
+Success - all inputs processed
+.TP
+.B 1
+Error - invalid arguments or processing failure
+
+.SH FILES
+.TP
+.I requirements.txt
+Python dependencies (python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif)
+
+.TP
+.I ~/.cache/
+Pillow and other libraries may cache data here
+
+.SH DEPENDENCIES
+.SS Required Python Packages
+.TP
+.B python-pptx
+PowerPoint file generation (>= 0.6.21)
+.TP
+.B Pillow
+Image processing (>= 10.0.0)
+.TP
+.B PyMuPDF (fitz)
+PDF metadata reading (>= 1.23.0)
+.TP
+.B pdf2image
+PDF to image conversion (>= 1.16.0)
+.TP
+.B pillow-heif
+HEIC/HEIF image support (>= 0.13.0)
+
+.SS System Dependencies
+.TP
+.B poppler-utils
+Provides \fBpdftoppm\fR command for PDF rendering
+.br
+Install: \fBapt install poppler-utils\fR (Debian/Ubuntu)
+.br
+Install: \fBbrew install poppler\fR (macOS)
+
+.SH PERFORMANCE
+.TP
+.B DPI Impact
+Processing time scales quadratically with DPI. A 300 DPI render is ~4x slower than 150 DPI, and ~4x faster than 600 DPI.
+
+.TP
+.B File Count
+Multi-page PDFs (30+ pages) at 300 DPI may take 30-60 seconds. Consider using 150 DPI for faster processing of large documents.
+
+.TP
+.B Memory Usage
+Peak memory depends on:
+.RS
+.IP \(bu 3
+DPI setting (higher = more RAM)
+.IP \(bu 3
+Number of simultaneous files
+.IP \(bu 3
+PDF page dimensions
+.RE
+.IP
+Expect ~100-500 MB for typical workloads.
+
+.SH DOCKER USAGE
+A Gradio web interface with Docker Compose is available:
+
+.nf
+.B docker compose up -d
+.fi
+
+Access at \fBhttp://localhost:7860\fR
+
+See \fBDOCKER.md\fR for details.
+
+.SH BUGS
+Report bugs at: \fBhttps://github.com/sageframe-no-kaji/image_2_ppt-dev/issues\fR
+
+.SH AUTHOR
+Andrew T. Marcus (Tyro Sageframe)
+
+.SH COPYRIGHT
+Copyright © 2026 Tyro Sageframe. Licensed under the MIT License.
+
+.SH SEE ALSO
+.BR pdftoppm (1),
+.BR convert (1)
+
+Full documentation: \fBhttps://github.com/sageframe-no-kaji/image_2_ppt-dev\fR

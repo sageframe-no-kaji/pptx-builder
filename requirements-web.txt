@@ -1,8 +1,0 @@
-# PPTX Builder - Web UI Dependencies
-# Install with: pip install -r requirements-web.txt
-
-# Include runtime dependencies
--r requirements.txt
-
-# Web UI framework
-gradio>=4.0.0

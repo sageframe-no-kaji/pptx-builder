@@ -65,7 +65,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Make changes and test
-python3 make_ppt.py
+pptx-builder
 ```
 
 ## Questions?
