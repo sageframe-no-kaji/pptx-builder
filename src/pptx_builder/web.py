@@ -284,7 +284,7 @@ input:focus, textarea:focus, select:focus {
 """
 
 # Create Gradio interface
-with gr.Blocks(title="PPTX Builder - Tyro Sageframe") as app:
+with gr.Blocks(title="PPTX Builder") as app:
     with gr.Column(elem_id="main-content"):
         # Header with logo
         gr.HTML("""
@@ -398,7 +398,7 @@ d="M150.5,17c73.7,0,133.5,59.8,133.5,133.5s-59.8,133.5-133.5,133.5S17,\
     gr.HTML("""
         <div class="footer">
             <p>
-                Created by <strong>Tyro Sageframe</strong> |
+                Created by Andrew Marcus |
                 <a href="https://github.com/sageframe-no-kaji" \
 target="_blank">GitHub</a> |
                 <a href="https://github.com/sageframe-no-kaji/pptx-builder" \

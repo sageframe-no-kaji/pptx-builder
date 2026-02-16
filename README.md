@@ -4,9 +4,32 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://github.com/sageframe-no-kaji/pptx-builder/actions/workflows/test.yml/badge.svg)](https://github.com/sageframe-no-kaji/pptx-builder/actions/workflows/test.yml)
 
-Convert PDFs and images to PowerPoint presentations. Each page or image becomes a slide at configurable DPI.
+A local-first CLI (and optional Web UI) for converting PDFs and image folders into clean, DPI-controlled PowerPoint slides — no PowerPoint required.
+
+## Why This Exists
+
+- **Privacy**: Process files locally without uploading to online converters
+- **Predictable output**: Raster pipeline produces clean slides, unlike fragile "editable" conversion that attempts text extraction
+- **Power-tool behavior**: Full control over DPI, aspect ratio, and placement — no surprise auto-fit or re-layout
 
 ## Installation
+
+### Via pip (Recommended)
+
+```bash
+pip install pptx-builder
+```
+
+**System dependencies:**
+- `poppler-utils` (for PDF conversion)
+  - Debian/Ubuntu: `sudo apt install poppler-utils`
+  - macOS: `brew install poppler`
+
+### With Web UI (Optional)
+
+```bash
+pip install "pptx-builder[web]"
+```
 
 ### Docker (Web UI)
 
@@ -20,59 +43,37 @@ Access web interface at http://localhost:7860
 
 See [DOCKER.md](DOCKER.md) for details.
 
-### Python CLI
-
-```bash
-git clone https://github.com/sageframe-no-kaji/pptx-builder.git
-cd pptx-builder
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-**System dependencies:**
-- Python 3.8+
-- `poppler-utils` (for PDF conversion)
-  - Debian/Ubuntu: `apt install poppler-utils`
-  - macOS: `brew install poppler`
-
 ## Usage
 
-### Web UI
-
-```bash
-docker compose up -d
-# Open http://localhost:7860
-```
-
-Upload files, select options, download presentation.
-
-### Command Line
+### CLI (Primary Interface)
 
 **Interactive mode:**
 ```bash
-python make_ppt.py
+pptx-builder
 ```
 
 **CLI examples:**
 ```bash
 # Convert PDF
-python make_ppt.py -i document.pdf
+pptx-builder -i document.pdf
 
 # Custom output name
-python make_ppt.py -i document.pdf -o slides.pptx
+pptx-builder -i document.pdf -o slides.pptx
 
 # Higher DPI (slower, sharper)
-python make_ppt.py -i document.pdf --dpi 600
+pptx-builder -i document.pdf --dpi 600
 
 # Process folder of images
-python make_ppt.py -i photos/
+pptx-builder -i photos/
 
 # Batch process
-python make_ppt.py -i file1.pdf file2.pdf --quiet --force
+pptx-builder -i file1.pdf file2.pdf --quiet --force
 
 # Process folder recursively
-python make_ppt.py -i images/ --recursive
+pptx-builder -i images/ --recursive
+
+# Verbose logging
+pptx-builder -i document.pdf --verbose
 ```
 
 **Common options:**
@@ -82,7 +83,24 @@ python make_ppt.py -i images/ --recursive
 - `-r, --recursive` - Process subfolders
 - `--quiet` - No prompts
 - `--force` - Overwrite existing files
+- `--verbose` - Enable debug logging
 - `-h, --help` - Show all options
+
+### Web UI (Optional)
+
+If you installed with `[web]` extras or via Docker:
+
+```bash
+python -m pptx_builder.web
+```
+
+Or with Docker:
+```bash
+docker compose up -d
+# Open http://localhost:7860
+```
+
+Upload files, select options, download presentation.
 
 ## Features
 
@@ -110,11 +128,6 @@ python make_ppt.py -i images/ --recursive
 
 ## Documentation
 
-**Man page:**
-```bash
-man docs/make_ppt.1
-```
-
 **Additional documentation:**
 - [DOCKER.md](DOCKER.md) - Docker deployment
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
@@ -123,18 +136,24 @@ man docs/make_ppt.1
 
 ## Development
 
+**Setup:**
+```bash
+git clone https://github.com/sageframe-no-kaji/pptx-builder.git
+cd pptx-builder
+pip install -e .[dev]
+```
+
 **Run tests:**
 ```bash
-pip install -r requirements-dev.txt
 pytest
-pytest --cov=make_ppt --cov-report=html
+pytest --cov=pptx_builder --cov-report=html
 ```
 
 **Code quality:**
 ```bash
-black make_ppt.py test_make_ppt.py  # Format
-flake8 make_ppt.py                   # Lint
-mypy make_ppt.py                     # Type check
+black src/                           # Format
+flake8 src/pptx_builder/            # Lint
+mypy src/pptx_builder/              # Type check
 ```
 
 **Pre-commit hooks:**
@@ -149,6 +168,10 @@ pre-commit run --all-files
 - Large PDFs (30+ pages) at 300 DPI may take 30-60 seconds
 - Temporary files cleaned up automatically
 - HEIC/HEIF require `pillow-heif` package (included)
+
+## Author
+
+Created by Andrew Marcus ([GitHub: sageframe-no-kaji](https://github.com/sageframe-no-kaji))
 
 ## License
 
