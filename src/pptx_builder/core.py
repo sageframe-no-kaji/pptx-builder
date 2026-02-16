@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-make_ppt.py
------------
-Create a PowerPoint (.pptx) from a folder of images or PDF files.
+pptx_builder.core
+-----------------
+Core module for PPTX Builder: Create PowerPoint presentations from PDFs and images.
 
 __version__ = "0.1.0"
 
@@ -235,7 +235,7 @@ import argparse  # noqa: E402
 def parse_cli_args():
     """Parse command-line arguments for batch, recursive, or quiet runs."""
     parser = argparse.ArgumentParser(
-        prog="make_ppt.py",
+        prog="pptx-builder",
         description="Build PowerPoint (.pptx) files from PDFs or image folders.",
     )
 
@@ -424,7 +424,7 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
 
 
 def main():
-    """Entry point for make_ppt.py — supports CLI or interactive use."""
+    """Entry point for pptx-builder CLI — supports CLI or interactive use."""
     args = parse_cli_args()
 
     # Configure logging based on verbose flag
