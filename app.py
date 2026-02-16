@@ -63,7 +63,7 @@ atexit.register(cleanup_temp_files)
 
 
 def process_files(
-    files: List[gr.File],
+    files: List[str],
     slide_size: str,
     fit_mode: str,
     dpi: int = 150,
@@ -73,14 +73,11 @@ def process_files(
     Process uploaded files and create PowerPoint presentation.
 
     Args:
-        files: List of uploaded files (PDFs or images)
+        files: List of uploaded file paths (strings)
         slide_size: Selected slide size preset
         fit_mode: "Fit whole image" or "Crop to fill"
         dpi: DPI for PDF conversion
         output_name: Custom output filename (optional)
-        slide_size: Selected slide size preset
-        fit_mode: "Fit whole image" or "Crop to fill"
-        dpi: DPI for PDF conversion
 
     Returns:
         Path to generated PPTX file or None on error
@@ -146,6 +143,11 @@ def process_files(
             if not output_filename.lower().endswith(".pptx"):
                 output_filename = output_filename + ".pptx"
         elif len(files) == 1:
+            # Single file: use input filename
+            first_file = Path(files[0])
+            output_filename = first_file.stem + ".pptx"
+        else:
+            # Multiple files: use generic name
             output_filename = "presentation.pptx"
 
         output_path = temp_dir / output_filename
