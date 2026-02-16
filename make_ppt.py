@@ -27,6 +27,7 @@ from typing import Tuple, List
 
 from pptx import Presentation
 from pptx.util import Inches, Emu
+from tqdm import tqdm
 
 # -----------------------------
 # Slide size presets (in inches)
@@ -199,6 +200,7 @@ def build_presentation(
     slide_width_in: float,
     slide_height_in: float,
     mode: str,
+    show_progress: bool = False,
 ) -> None:
     """Create the PPTX."""
     prs = Presentation()
@@ -209,13 +211,19 @@ def build_presentation(
     sw_emu = int(prs.slide_width)  # type: ignore[arg-type]
     sh_emu = int(prs.slide_height)  # type: ignore[arg-type]
 
-    for img in images:
+    # Create slides with optional progress bar
+    image_iter = (
+        tqdm(images, desc="Building slides", unit="slide") if show_progress else images
+    )
+    for img in image_iter:
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
         if mode == "fit":
             place_picture_fit(slide, img, sw_emu, sh_emu)
         else:
             place_picture_fill(slide, img, sw_emu, sh_emu)
 
+    if show_progress:
+        print("Saving presentation...")
     prs.save(str(output_path))
 
 
@@ -308,7 +316,14 @@ def convert_pdf_to_images(pdf_path: Path, dpi: int) -> List[Path]:
         print(f"[DEBUG make_ppt] Got {len(pages)} pages from PDF")
         out_paths = []
 
-        for i, page in enumerate(pages, start=1):
+        # Convert pages with progress bar
+        page_iter = tqdm(
+            enumerate(pages, start=1),
+            total=len(pages),
+            desc="Converting PDF pages",
+            unit="page",
+        )
+        for i, page in page_iter:
             out_path = temp_dir / f"page_{i:04d}.png"
             page.save(out_path, "PNG")
             out_paths.append(out_path)
@@ -376,7 +391,7 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
             print(f"📄 Converting PDF → PPTX: {item.name} → {out_name}")
             pages = convert_pdf_to_images(item, dpi=dpi)
             w_in, h_in = pdf_first_page_size_inches(item)
-            build_presentation(pages, out_path, w_in, h_in, "fit")
+            build_presentation(pages, out_path, w_in, h_in, "fit", show_progress=True)
         else:
             # Image folder
             imgs = list_images(item if item.is_dir() else folder)
@@ -398,7 +413,7 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
                 if w_in < h_in:
                     w_in, h_in = h_in, w_in
 
-            build_presentation(imgs, out_path, w_in, h_in, "fit")
+            build_presentation(imgs, out_path, w_in, h_in, "fit", show_progress=True)
 
 
 # ===[ MAIN ENTRYPOINT ]============================================
@@ -465,6 +480,7 @@ def main():
                     slide_width_in=width_in,
                     slide_height_in=height_in,
                     mode=mode,
+                    show_progress=True,
                 )
             else:
                 images = list_images(in_path)
@@ -477,6 +493,7 @@ def main():
                     slide_width_in=width_in,
                     slide_height_in=height_in,
                     mode=mode,
+                    show_progress=True,
                 )
         except Exception as e:
             print(f"✗ Failed to create presentation: {e}")
@@ -531,6 +548,7 @@ def main():
                         slide_width_in=w_in,
                         slide_height_in=h_in,
                         mode="fit",
+                        show_progress=not args.quiet,
                     )
                     if not args.quiet:
                         print(f'✅ Saved: {out_path} ({w_in:.2f}" × {h_in:.2f}")')

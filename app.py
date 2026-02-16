@@ -165,6 +165,7 @@ def process_files(
             slide_width_in=width_in,
             slide_height_in=height_in,
             mode=mode,
+            show_progress=False,  # No terminal progress in web UI
         )
 
         print("[DEBUG] Presentation created successfully")
