@@ -184,36 +184,146 @@ def process_files(
 
 # Custom CSS for branding
 custom_css = """
+/* Force consistent width across all containers */
+.gradio-container, .main, .wrap, .contain {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 70% width for all major sections */
+.header-container, .info-box, .footer-container {
+    width: 70% !important;
+    max-width: 70% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+}
+
+.header-container {
+    margin-top: 4px !important;
+    margin-bottom: 0px !important;
+}
+
+.info-box {
+    margin-top: 3px !important;
+    margin-bottom: 3px !important;
+}
+
+.footer-container {
+    margin-top: 3px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Main content also 70% width */
+#main-content {
+    width: 70% !important;
+    max-width: 70% !important;
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding: 20px !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+}
+
 .logo-container {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 25px;
-    background: linear-gradient(135deg, #1a1a1a 0%, #ed1e24 100%);
+    justify-content: space-between;
+    gap: 15px;
+    padding: 18px 25px;
+    background: linear-gradient(135deg, #ed1e24 0%, #c41a1f 100%);
     border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
 }
-.logo-container svg {
-    width: 60px;
-    height: 60px;
+.logo-left {
+    text-align: left;
 }
-.logo-container h1 {
+.logo-left h1 {
     color: white;
     margin: 0;
     font-size: 2em;
     font-weight: 600;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
+.logo-left p {
+    margin: 5px 0 0 0;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1em;
+}
+
+.cli-right {
+    text-align: right;
+}
+.cli-right h3 {
+    color: white;
+    margin: 0 0 5px 0;
+    font-size: 0.95em;
+    font-weight: 600;
+}
+.cli-right code {
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    font-family: 'Monaco', 'Courier New', monospace;
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Info box styling */
+.info-content {
+    display: flex;
+    justify-content: space-around;
+    gap: 25px;
+    padding: 15px 25px;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.info-item {
+    flex: 1;
+    text-align: center;
+}
+.info-item strong {
+    display: block;
+    font-size: 1.05em;
+    margin-bottom: 4px;
+    color: #333;
+}
+.info-item span {
+    display: block;
+    font-size: 0.9em;
+    color: #666;
+    line-height: 1.4;
+}
+
+/* Dark mode info box */
+.dark .info-content {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.dark .info-item strong {
+    color: #eee;
+}
+.dark .info-item span {
+    color: #aaa;
+}
+
 .footer {
     text-align: center;
-    padding: 20px;
+    padding: 18px 25px;
     background: linear-gradient(135deg, #ed1e24 0%, #c41a1f 100%);
     border-radius: 10px;
-    margin-top: 20px;
     color: white;
-    border: 1px solid #c41a1f;
 }
 .footer a {
     color: white;
@@ -222,12 +332,20 @@ custom_css = """
     transition: all 0.2s ease;
 }
 .footer a:hover {
-    color: #c41a1f;
+    opacity: 0.8;
     text-decoration: underline;
 }
-#main-content {
-    max-width: 1200px;
-    margin: 0 auto;
+
+/* Light mode background */
+.light #main-content {
+    background: rgba(0, 0, 0, 0.02) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Dark mode background */
+.dark #main-content {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Primary button styling - red theme */
@@ -282,28 +400,51 @@ input:focus, textarea:focus, select:focus {
 """
 
 # Create Gradio interface
-with gr.Blocks(title="PPTX Builder") as app:
-    with gr.Column(elem_id="main-content"):
-        # Red gradient header
-        gr.HTML("""
+with gr.Blocks(title="PPTX Builder", theme=gr.themes.Default(primary_hue="red").set(body_background_fill="#0b0f19"), css=custom_css) as app:
+    # Header (70% width) with left/right split
+    gr.HTML("""
+    <div class="header-container">
         <div class="logo-container">
-            <div>
+            <div class="logo-left">
                 <h1>PPTX Builder</h1>
-                <p style="margin: 10px 0 0 0; font-style: italic; color: white; font-size: 1.1em;">Convert PDFs and images to PowerPoint presentations</p>
+                <p>Convert PDFs and images to PowerPoint presentations</p>
+            </div>
+            <div class="cli-right">
+                <h3>Prefer CLI?</h3>
+                <code>pip install sageframe-pptx-builder</code>
             </div>
         </div>
-        """)
+    </div>
+    """)
 
+    # Info box (70% width)
+    gr.HTML("""
+    <div class="info-box">
+        <div class="info-content">
+            <div class="info-item">
+                <strong>Private by design.</strong>
+                <span>Files are processed in-memory and automatically deleted. Nothing is stored or logged.</span>
+            </div>
+            <div class="info-item">
+                <strong>Open source.</strong>
+                <span>See the full code on GitHub.</span>
+            </div>
+        </div>
+    </div>
+    """)
+
+    # Main content column (70% width with background)
+    with gr.Column(elem_id="main-content"):
         gr.Markdown("""
             **Supported formats:** PDF, PNG, JPG, JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
             """)
 
-    with gr.Row():
-        with gr.Column():
-            files = gr.File(
-                label="Upload PDF or Images",
-                file_count="multiple",
-                file_types=[
+        with gr.Row():
+            with gr.Column():
+                files = gr.File(
+                    label="Upload PDF or Images",
+                    file_count="multiple",
+                    file_types=[
                     ".pdf",
                     ".png",
                     ".jpg",
@@ -317,62 +458,62 @@ with gr.Blocks(title="PPTX Builder") as app:
                     ".heic",
                     ".heif",
                 ],
-            )
+                )
 
-            slide_size = gr.Dropdown(
-                choices=list(SLIDE_SIZE_OPTIONS.keys()),
-                value="16:9 (Widescreen)",
-                label="Slide Size",
-            )
+                slide_size = gr.Dropdown(
+                    choices=list(SLIDE_SIZE_OPTIONS.keys()),
+                    value="16:9 (Widescreen)",
+                    label="Slide Size",
+                )
 
-            fit_mode = gr.Radio(
-                choices=["Fit whole image", "Crop to fill"],
-                value="Fit whole image",
-                label="Image Placement",
-            )
+                fit_mode = gr.Radio(
+                    choices=["Fit whole image", "Crop to fill"],
+                    value="Fit whole image",
+                    label="Image Placement",
+                )
 
-            dpi = gr.Slider(
-                minimum=150, maximum=600, value=150, step=50, label="PDF Conversion DPI"
-            )
+                dpi = gr.Slider(
+                    minimum=150, maximum=600, value=150, step=50, label="PDF Conversion DPI"
+                )
 
-            output_name = gr.Textbox(
-                label="Output Filename (optional)",
-                placeholder="Leave empty to use input filename",
-                value="",
-            )
+                output_name = gr.Textbox(
+                    label="Output Filename (optional)",
+                    placeholder="Leave empty to use input filename",
+                    value="",
+                )
 
-            submit_btn = gr.Button("Create Presentation", variant="primary")
+                submit_btn = gr.Button("Create Presentation", variant="primary")
 
-        with gr.Column():
-            output = gr.File(label="Download PPTX")
+            with gr.Column():
+                output = gr.File(label="Download PPTX")
 
-            gr.Markdown("""
-                ### How it works:
-                1. Upload one or more PDFs or images
-                2. Choose slide size and placement mode
-                3. Click "Create Presentation"
-                4. Download your PPTX file
+                gr.Markdown("""
+                    ### How it works:
+                    1. Upload one or more PDFs or images
+                    2. Choose slide size and placement mode
+                    3. Click "Create Presentation"
+                    4. Download your PPTX file
 
-                **Note:** Temp files are cleaned up automatically after 1 hour.
-                """)
+                    **Note:** Temp files are cleaned up automatically after 1 hour.
+                    """)
 
-    # Connect interface
-    submit_btn.click(
-        fn=process_files,
-        inputs=[files, slide_size, fit_mode, dpi, output_name],
-        outputs=output,
-    )
+        # Connect interface
+        submit_btn.click(
+            fn=process_files,
+            inputs=[files, slide_size, fit_mode, dpi, output_name],
+            outputs=output,
+        )
 
-    # Footer with branding
+    # Footer with branding (70% width)
     gr.HTML("""
-        <div class="footer">
-            <p>
-                Created by Andrew T. Marcus |
-                <a href="https://github.com/sageframe-no-kaji" \
-target="_blank">GitHub</a> |
-                <a href="https://github.com/sageframe-no-kaji/pptx-builder" \
-target="_blank">Source Code</a>
-            </p>
+        <div class="footer-container">
+            <div class="footer">
+                <p>
+                    Created by Andrew T. Marcus |
+                    <a href="https://github.com/sageframe-no-kaji/pptx-builder" \
+target="_blank">View source on GitHub</a>
+                </p>
+            </div>
         </div>
         """)
 
@@ -385,5 +526,4 @@ if __name__ == "__main__":
         server_port=7860,
         share=False,
         allowed_paths=[str(Path(__file__).parent)],
-        css=custom_css,
     )
