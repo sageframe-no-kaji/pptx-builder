@@ -7,6 +7,8 @@
 
 A local-first CLI (and optional Web UI) for converting PDFs and image folders into clean, DPI-controlled PowerPoint slides — no PowerPoint required.
 
+**Development Process:** This project was built using the [Ho System](https://atmarcus.net/work/ho-system), a structured methodology for human-AI collaborative development. The human makes every design decision. The AI implements under direction. There is verification at every step.
+
 ---
 
 ## Quick Start
