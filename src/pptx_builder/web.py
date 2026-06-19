@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Gradio Web UI for PPTX Builder
-Simple interface for converting PDFs and images to PowerPoint
-"""
+"""Gradio Web UI for PPTX Builder"""
 
 import gradio as gr
 import logging
@@ -18,12 +15,11 @@ from .core import (
     convert_pdf_to_images,
     pdf_first_page_size_inches,
 )
+from ._icon_data import ICON_DATA_URI
 
-# Set up module logger
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-# Slide size options for dropdown
 SLIDE_SIZE_OPTIONS = {
     "16:9 (Widescreen)": (13.3333333333, 7.5),
     "4:3 (Standard)": (10.0, 7.5),
@@ -33,16 +29,12 @@ SLIDE_SIZE_OPTIONS = {
     'Tabloid (17" x 11")': (17.0, 11.0),
 }
 
-# Security limits
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
-MAX_FILES = 100  # Max 100 files per upload
-
-# Track temp directories for cleanup
+MAX_FILE_SIZE = 50 * 1024 * 1024
+MAX_FILES = 100
 TEMP_DIRS: List[Path] = []
 
 
 def cleanup_temp_files():
-    """Clean up all temporary directories on exit."""
     for temp_dir in TEMP_DIRS:
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -50,18 +42,14 @@ def cleanup_temp_files():
 
 
 def cleanup_old_files():
-    """Remove temp directories older than 1 hour."""
     temp_base = Path(tempfile.gettempdir())
     current_time = time.time()
-
     for item in temp_base.glob("pptx_builder_*"):
         if item.is_dir():
-            # Remove if older than 1 hour
             if current_time - item.stat().st_mtime > 3600:
                 shutil.rmtree(item, ignore_errors=True)
 
 
-# Register cleanup on exit
 atexit.register(cleanup_temp_files)
 
 
@@ -72,95 +60,59 @@ def process_files(
     dpi: int = 150,
     output_name: str = "",
 ) -> Optional[str]:
-    """
-    Process uploaded files and create PowerPoint presentation.
-
-    Args:
-        files: List of uploaded file paths (strings)
-        slide_size: Selected slide size preset
-        fit_mode: "Fit whole image" or "Crop to fill"
-        dpi: DPI for PDF conversion
-        output_name: Custom output filename (optional)
-
-    Returns:
-        Path to generated PPTX file or None on error
-    """
     if not files:
         return None
 
     logger.debug(f"Processing {len(files)} file(s)")
 
-    # Security: Limit number of files
     if len(files) > MAX_FILES:
         raise gr.Error(f"Too many files. Maximum {MAX_FILES} files allowed.")
 
-    # Security: Check file sizes
     for file in files:
-        logger.debug(f"Checking file: {file}")
         file_path = Path(file)
         if file_path.exists() and file_path.stat().st_size > MAX_FILE_SIZE:
-            raise gr.Error(f"File too large: {file_path.name}. Maximum 50MB per file.")
+            raise gr.Error(
+                f"File too large: {file_path.name}. Maximum 50MB per file."
+            )
 
-    # Create temp directory for processing
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_builder_"))
     TEMP_DIRS.append(temp_dir)
-    logger.debug(f"Created temp dir: {temp_dir}")
 
     try:
-        # Get slide dimensions
         width_in, height_in = SLIDE_SIZE_OPTIONS[slide_size]
 
-        # Auto-detect aspect ratio for single PDF
         if len(files) == 1 and Path(files[0]).suffix.lower() == ".pdf":
             width_in, height_in = pdf_first_page_size_inches(Path(files[0]))
-            logger.debug(f"Auto-detected PDF aspect ratio: {width_in:.2f}x{height_in:.2f}")
+            logger.debug(
+                f"Auto-detected PDF aspect ratio: {width_in:.2f}x{height_in:.2f}"
+            )
 
         mode = "fit" if fit_mode == "Fit whole image" else "fill"
-        logger.debug(f"Slide size: {width_in}x{height_in}, mode: {mode}")
-
         image_files = []
 
-        # Process each uploaded file
         for file in files:
             file_path = Path(file)
-            logger.debug(f"Processing file: {file_path}")
-
-            # Handle PDFs
             if file_path.suffix.lower() == ".pdf":
-                logger.debug("Converting PDF at {} DPI".format(dpi))
-                # Convert PDF to images
                 pdf_images = convert_pdf_to_images(file_path, dpi=dpi)
-                logger.debug(f"Got {len(pdf_images)} images from PDF")
                 image_files.extend(pdf_images)
             else:
-                # Direct image files
-                logger.debug("Adding image file directly")
                 image_files.append(file_path)
 
         if not image_files:
-            logger.debug("No image files to process")
             return None
 
-        # Sort images
         image_files.sort(key=lambda p: p.name.lower())
-        logger.debug(f"Total images: {len(image_files)}")
 
-        # Create output PPTX with appropriate name
         if output_name and output_name.strip():
-            # Use custom name if provided
             output_filename = output_name.strip()
             if not output_filename.lower().endswith(".pptx"):
-                output_filename = output_filename + ".pptx"
+                output_filename += ".pptx"
         elif len(files) == 1:
-            # Single file: use input filename
-            first_file = Path(files[0])
-            output_filename = first_file.stem + ".pptx"
+            output_filename = Path(files[0]).stem + ".pptx"
         else:
-            # Multiple files: use generic name
             output_filename = "presentation.pptx"
 
         output_path = temp_dir / output_filename
-        logger.debug(f"Building presentation: {output_path}")
 
         build_presentation(
             images=image_files,
@@ -168,10 +120,9 @@ def process_files(
             slide_width_in=width_in,
             slide_height_in=height_in,
             mode=mode,
-            show_progress=False,  # No terminal progress in web UI
+            show_progress=False,
         )
 
-        logger.debug("Presentation created successfully")
         return str(output_path)
 
     except Exception as e:
@@ -182,348 +133,734 @@ def process_files(
         raise gr.Error(f"Error: {str(e)}")
 
 
-# Custom CSS for branding
+# ──────────────────────────────────────────────────────────────────────────────
+# HTML blocks
+# ──────────────────────────────────────────────────────────────────────────────
+
+_FONTS_HEAD = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600&display=swap" rel="stylesheet">
+"""
+
+_HEADER = f"""
+<div class="atm-header">
+  <div class="atm-header-inner">
+    <div class="atm-header-left">
+      <div class="atm-header-brand">
+        <img src="{ICON_DATA_URI}" alt="" class="atm-icon" aria-hidden="true">
+        <div>
+          <h1 class="atm-title">PPTX Builder</h1>
+          <p class="atm-tagline">Convert PDFs and images into PowerPoint presentations.</p>
+        </div>
+      </div>
+    </div>
+    <div class="atm-header-right">
+      <span class="atm-cli-label">prefer the cli?</span>
+      <code class="atm-cli-code">pip install sageframe-pptx-builder</code>
+    </div>
+  </div>
+</div>
+"""
+
+_INFO_STRIP = """
+<div class="atm-info-strip-wrap">
+  <div class="atm-info-strip">
+    <div class="atm-info-item">
+      <strong class="atm-info-label">Private by design.</strong><span
+      class="atm-info-desc">Files processed in-memory and deleted after one hour.
+      Nothing stored or logged.</span>
+    </div>
+    <div class="atm-info-item">
+      <strong class="atm-info-label">Open source.</strong><span class="atm-info-desc">A <a href="https://sageframe.net" target="_blank" class="atm-link">Sageframe</a> project &mdash; <a href="https://github.com/sageframe-no-kaji/pptx-builder" target="_blank" class="atm-link atm-link-nowrap">view&nbsp;source&nbsp;on&nbsp;GitHub&nbsp;&rarr;</a></span>
+    </div>
+    <div class="atm-info-item">
+      <strong class="atm-info-label">Demo limits.</strong><span class="atm-info-desc">50&nbsp;MB per file &middot; 100 files max. <a href="https://github.com/sageframe-no-kaji/pptx-builder" target="_blank" class="atm-link atm-link-nowrap">Self-host&nbsp;&rarr;</a> for no limits and 100% privacy.</span>
+    </div>
+  </div>
+</div>
+"""
+
+_HOW_IT_WORKS = """
+<div class="atm-how">
+  <h3 class="atm-how-title">How it works</h3>
+  <ol class="atm-how-list">
+    <li>Upload one or more PDFs or images</li>
+    <li>Choose a slide size and image placement</li>
+    <li>Click <em>Create presentation</em></li>
+    <li>Download your PPTX file</li>
+  </ol>
+  <p class="atm-how-note">
+    A single PDF auto-detects its aspect ratio.
+    Multiple files sort alphabetically by filename.
+  </p>
+  <p class="atm-how-note">Temp files are deleted automatically after one hour.</p>
+</div>
+"""
+
+_FOOTER = """
+<div class="atm-footer">
+  <p>
+    Created by Andrew T.&nbsp;Marcus
+    &nbsp;&middot;&nbsp;
+    <a href="https://sageframe.net" target="_blank" class="atm-footer-link">sageframe.net</a>
+    &nbsp;&middot;&nbsp;
+    <a href="https://github.com/sageframe-no-kaji/pptx-builder"
+       target="_blank"
+       class="atm-footer-link">View source on GitHub &rarr;</a>
+  </p>
+</div>
+"""
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ATM Brand System — CSS
+# ──────────────────────────────────────────────────────────────────────────────
+
 custom_css = """
-/* Force consistent width across all containers */
-.gradio-container, .main, .wrap, .contain {
-    max-width: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
+/* ================================================================
+   Design tokens
+   ================================================================ */
+:root {
+  --ink:          #1a1a1a;
+  --ink-light:    #4a4a4a;
+  --ink-muted:    #7a7a7a;
+  --ground:       #f5f2ed;
+  --ground-warm:  #ebe6dd;
+  --white:        #faf8f4;
+  --accent:       #c45a2d;
+  --umber:        #6b3a2a;
+  --rule:         #d0c9be;
+  --dark-bg:      #1a1a1a;
+  --dark-text:    #c8c2b8;
+  --dark-prose:   #b0a99e;
+  --dark-muted:   #888888;
+  --dark-surface: #252525;
+
+  --display: 'DM Serif Display', Georgia, serif;
+  --body:    'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono:    'IBM Plex Mono', 'Courier New', monospace;
+
+  --max-w:  960px;
+  --gutter: clamp(1.25rem, 4vw, 2.5rem);
 }
 
-body {
-    margin: 0 !important;
-    padding: 0 !important;
+/* ================================================================
+   Base reset — override Gradio defaults
+   ================================================================ */
+html, body {
+  background: var(--ground) !important;
+  font-family: var(--body) !important;
+  color: var(--ink-light) !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* 70% width for all major sections */
-.header-container, .info-box, .footer-container {
-    width: 70% !important;
-    max-width: 70% !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    box-sizing: border-box !important;
+.gradio-container {
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--ground) !important;
+  min-height: 100vh;
 }
 
-.header-container {
-    margin-top: 4px !important;
-    margin-bottom: 0px !important;
+.gradio-container > .main,
+.gradio-container > .main > .wrap,
+.gradio-container > .main > .contain {
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: var(--ground) !important;
+  gap: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.info-box {
-    margin-top: 3px !important;
-    margin-bottom: 3px !important;
+/* ================================================================
+   Header — Ink dark band
+   ================================================================ */
+.atm-header {
+  background: var(--dark-bg);
+  width: 100%;
+  margin: 0;
 }
 
-.footer-container {
-    margin-top: 3px !important;
-    margin-bottom: 8px !important;
+.atm-header-inner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 2rem var(--gutter);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  box-sizing: border-box;
 }
 
-/* Main content also 70% width */
+.atm-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.atm-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.atm-icon {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  display: block;
+}
+
+.atm-title {
+  font-family: var(--display) !important;
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--ground) !important;
+  margin: 0 0 0.4rem 0;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.atm-tagline {
+  font-family: var(--display) !important;
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--dark-prose) !important;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.atm-header-right {
+  text-align: right;
+  flex-shrink: 0;
+  padding-top: 0.25rem;
+}
+
+.atm-cli-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  color: var(--dark-muted);
+  margin-bottom: 0.45rem;
+}
+
+.atm-cli-code {
+  display: inline-block;
+  font-family: var(--mono) !important;
+  font-size: 0.8rem;
+  font-weight: 400;
+  background: var(--dark-surface);
+  color: var(--dark-text);
+  padding: 0.45rem 0.85rem;
+  border-radius: 2px;
+  white-space: nowrap;
+  border: none;
+  user-select: all;
+}
+
+/* ================================================================
+   Info strip
+   ================================================================ */
+.atm-info-strip-wrap {
+  background: var(--ground);
+  border-bottom: 1px solid var(--rule);
+}
+
+.atm-info-strip {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 1rem var(--gutter);
+  display: flex;
+  gap: 3rem;
+  box-sizing: border-box;
+}
+
+.atm-info-item {
+  flex: 1;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.atm-info-label {
+  font-family: var(--body);
+  font-weight: 600;
+  color: var(--ink);
+  margin-right: 0.3em;
+}
+
+.atm-info-desc {
+  font-family: var(--body);
+  color: var(--ink-muted);
+}
+
+.atm-link {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.atm-link:hover { color: var(--ink); }
+.atm-link-nowrap { white-space: nowrap; }
+
+/* ================================================================
+   Main content panel — white surface
+   ================================================================ */
 #main-content {
-    width: 70% !important;
-    max-width: 70% !important;
-    margin-top: 0px !important;
-    margin-bottom: 0px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    padding: 20px !important;
-    border-radius: 10px !important;
-    box-sizing: border-box !important;
+  max-width: var(--max-w) !important;
+  width: calc(100% - 2 * var(--gutter)) !important;
+  margin: 2rem auto 0 !important;
+  background: var(--white) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: 2px !important;
+  padding: 2rem !important;
+  box-sizing: border-box !important;
+  gap: 1.5rem !important;
+  box-shadow: none !important;
 }
 
-.logo-container {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    padding: 18px 25px;
-    background: linear-gradient(135deg, #ed1e24 0%, #c41a1f 100%);
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-}
-.logo-left {
-    text-align: left;
-}
-.logo-left h1 {
-    color: white;
-    margin: 0;
-    font-size: 2em;
-    font-weight: 600;
-}
-.logo-left p {
-    margin: 5px 0 0 0;
-    font-style: italic;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 1em;
+/* Accepted formats tag line */
+.atm-formats {
+  font-family: var(--mono) !important;
+  font-size: 0.7rem !important;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted) !important;
+  margin: 0 0 0.5rem !important;
+  line-height: 1.5;
 }
 
-.cli-right {
-    text-align: right;
-}
-.cli-right h3 {
-    color: white;
-    margin: 0 0 5px 0;
-    font-size: 0.95em;
-    font-weight: 600;
-}
-.cli-right code {
-    background: rgba(0, 0, 0, 0.3);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.9em;
-    font-family: 'Monaco', 'Courier New', monospace;
-    display: inline-block;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+/* ================================================================
+   Gradio form element overrides
+   ================================================================ */
+
+/* Labels */
+#main-content label,
+#main-content .label-wrap > span {
+  font-family: var(--body) !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  color: var(--ink) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
 }
 
-/* Info box styling */
-.info-content {
-    display: flex;
-    justify-content: space-around;
-    gap: 25px;
-    padding: 15px 25px;
-    background: rgba(0, 0, 0, 0.03);
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+/* Text inputs */
+#main-content input[type="text"],
+#main-content input[type="number"],
+#main-content input[type="search"],
+#main-content textarea {
+  font-family: var(--body) !important;
+  font-size: 0.9rem !important;
+  background: var(--white) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: border-color 0.15s ease !important;
 }
-.info-item {
-    flex: 1;
-    text-align: center;
-}
-.info-item strong {
-    display: block;
-    font-size: 1.05em;
-    margin-bottom: 4px;
-    color: #333;
-}
-.info-item span {
-    display: block;
-    font-size: 0.9em;
-    color: #666;
-    line-height: 1.4;
+#main-content input[type="text"]:focus,
+#main-content input[type="number"]:focus,
+#main-content textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
 }
 
-/* Dark mode info box */
-.dark .info-content {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+/* Dropdown / select */
+#main-content .wrap,
+#main-content select {
+  font-family: var(--body) !important;
+  font-size: 0.9rem !important;
+  background: var(--white) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
 }
-.dark .info-item strong {
-    color: #eee;
-}
-.dark .info-item span {
-    color: #aaa;
-}
-
-.footer {
-    text-align: center;
-    padding: 18px 25px;
-    background: linear-gradient(135deg, #ed1e24 0%, #c41a1f 100%);
-    border-radius: 10px;
-    color: white;
-}
-.footer a {
-    color: white;
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-.footer a:hover {
-    opacity: 0.8;
-    text-decoration: underline;
+#main-content .wrap:focus-within {
+  border-color: var(--accent) !important;
 }
 
-/* Light mode background */
-.light #main-content {
-    background: rgba(0, 0, 0, 0.02) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+/* Slider track + thumb */
+#main-content input[type="range"] {
+  accent-color: var(--accent);
+}
+#main-content input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--rule) !important;
+  border-radius: 2px !important;
+  height: 3px !important;
+}
+#main-content input[type="range"]::-webkit-slider-thumb {
+  background: var(--accent) !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  margin-top: -6px !important;
+}
+#main-content input[type="range"]::-moz-range-track {
+  background: var(--rule) !important;
+  border-radius: 2px !important;
+  height: 3px !important;
+}
+#main-content input[type="range"]::-moz-range-thumb {
+  background: var(--accent) !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
 }
 
-/* Dark mode background */
-.dark #main-content {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+/* Radio */
+#main-content input[type="radio"] {
+  accent-color: var(--accent) !important;
 }
 
-/* Primary button styling - red theme */
-.primary-btn, button.primary {
-    background: linear-gradient(135deg, #ed1e24 0%, #c41a1f 100%) !important;
-    color: white !important;
-    border: none !important;
-    font-weight: 600 !important;
-    box-shadow: 0 2px 4px rgba(237, 30, 36, 0.3) !important;
-    transition: all 0.2s ease !important;
+/* File upload zone */
+#main-content .upload-container,
+#main-content [data-testid="file"],
+#main-content .file-preview-holder {
+  border: 1px dashed var(--rule) !important;
+  border-radius: 2px !important;
+  background: var(--white) !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
 }
-.primary-btn:hover, button.primary:hover {
-    background: linear-gradient(135deg, #c41a1f 0%, #a01519 100%) !important;
-    box-shadow: 0 4px 8px rgba(237, 30, 36, 0.4) !important;
-    transform: translateY(-1px);
-}
-
-/* Radio button styling - red when selected */
-input[type="radio"]:checked {
-    accent-color: #ed1e24 !important;
-    background-color: #ed1e24 !important;
-}
-.radio-group label {
-    transition: all 0.2s ease;
-}
-input[type="radio"]:checked + label {
-    color: #ed1e24 !important;
-    font-weight: 500;
+#main-content .upload-container:hover,
+#main-content [data-testid="file"]:hover {
+  border-color: var(--accent) !important;
+  background: var(--ground-warm) !important;
 }
 
-/* Slider styling - red accent */
-input[type="range"]::-webkit-slider-thumb {
-    background: #ed1e24 !important;
+/* Primary button */
+#main-content button.primary,
+.primary-btn {
+  font-family: var(--body) !important;
+  font-size: 0.93rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  background: var(--accent) !important;
+  color: var(--white) !important;
+  border: none !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: background-color 0.15s ease !important;
 }
-input[type="range"]::-moz-range-thumb {
-    background: #ed1e24 !important;
+#main-content button.primary:hover,
+.primary-btn:hover {
+  background: var(--umber) !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
-input[type="range"]::-webkit-slider-runnable-track {
-    background: linear-gradient(to right, #ed1e24 0%, #1a1a1a 100%) !important;
+#main-content button.primary:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
 }
 
-/* Input focus states - red accent */
-input:focus, textarea:focus, select:focus {
-    border-color: #ed1e24 !important;
-    box-shadow: 0 0 0 2px rgba(237, 30, 36, 0.2) !important;
+/* Secondary / other buttons */
+#main-content button:not(.primary) {
+  font-family: var(--body) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
 }
 
-/* Dropdown hover */
-.dropdown:hover {
-    border-color: #ed1e24 !important;
+/* ================================================================
+   How it works sidebar
+   ================================================================ */
+.atm-how {
+  padding-top: 0.5rem;
+}
+
+.atm-how-title {
+  font-family: var(--display) !important;
+  font-size: 1.2rem !important;
+  font-weight: 400 !important;
+  color: var(--ink) !important;
+  margin: 0 0 0.8rem !important;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.atm-how-list {
+  font-family: var(--body);
+  font-size: 0.9rem;
+  color: var(--ink-light);
+  line-height: 1.75;
+  padding-left: 1.25rem;
+  margin: 0 0 1rem 0;
+}
+
+.atm-how-list em {
+  font-style: italic;
+  color: var(--ink);
+}
+
+.atm-how-note {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.025em;
+  color: var(--ink-muted);
+  margin: 0.4rem 0 0;
+  line-height: 1.55;
+}
+
+/* ================================================================
+   Footer
+   ================================================================ */
+.atm-footer {
+  max-width: var(--max-w);
+  margin: 1.75rem auto 2.5rem;
+  padding: 0 var(--gutter);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.atm-footer p {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  margin: 0;
+  letter-spacing: 0.025em;
+}
+
+.atm-footer-link {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.atm-footer-link:hover { color: var(--ink); }
+
+/* ================================================================
+   Gradio noise suppression
+   ================================================================ */
+
+/* Remove all spacing between top-level blocks */
+.gradio-container > .main > .contain {
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+/* The outer column wrapper inside .contain has gap: 16px — zero it */
+.gradio-container .contain > div[class*="column"],
+.gradio-container .contain > .column {
+  gap: 0 !important;
+  row-gap: 0 !important;
+}
+
+/* Collapse ALL block padding in the outer container */
+.gradio-container > .main > .contain > .block,
+.gradio-container > .main > .contain > div {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove Gradio's own borders/shadows from the inner panels */
+#main-content > .gap,
+#main-content .block {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* Gradio adds padding to rows; keep it zero */
+#main-content .row {
+  gap: 2rem !important;
+}
+
+/* Suppress Gradio's form section borders */
+#main-content fieldset,
+#main-content .form {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  gap: 1.25rem !important;
+}
+
+/* Suppress Gradio's panel backgrounds */
+#main-content .panel,
+#main-content .component-wrap {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Hide Gradio's built-in <footer> element (not our .atm-footer div) */
+footer {
+  display: none !important;
+}
+
+/* Ensure our footer div is always visible */
+.atm-footer {
+  display: block !important;
+}
+
+/* Kill gap between atm-header, atm-info-strip-wrap, and main blocks */
+.gradio-container .prose,
+.gradio-container > .main > .contain > div:not(#main-content) {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* File upload — Gradio 6 dropzone button (class "boundedheight" is unique to this element) */
+button.boundedheight {
+  width: 100% !important;
+  border: 1px dashed var(--rule) !important;
+  border-radius: 2px !important;
+  background: var(--white) !important;
+  color: var(--ink-muted) !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+}
+button.boundedheight:hover {
+  border-color: var(--accent) !important;
+  background: var(--ground-warm) !important;
+}
+
+/* ================================================================
+   Reduced motion
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ================================================================
+   Responsive
+   ================================================================ */
+@media (max-width: 720px) {
+  .atm-header-inner {
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .atm-header-right { text-align: left; }
+
+  .atm-info-strip {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  #main-content {
+    width: calc(100% - 2rem) !important;
+    margin: 1.25rem auto 0 !important;
+    padding: 1.25rem !important;
+  }
+
+  .atm-footer {
+    margin: 1.5rem auto 2rem;
+  }
 }
 """
 
-# Create Gradio interface
-with gr.Blocks(title="PPTX Builder", theme=gr.themes.Default(primary_hue="red").set(body_background_fill="#0b0f19"), css=custom_css) as app:
-    # Header (70% width) with left/right split
-    gr.HTML("""
-    <div class="header-container">
-        <div class="logo-container">
-            <div class="logo-left">
-                <h1>PPTX Builder</h1>
-                <p>Convert PDFs and images to PowerPoint presentations</p>
-            </div>
-            <div class="cli-right">
-                <h3>Prefer CLI?</h3>
-                <code>pip install sageframe-pptx-builder</code>
-            </div>
-        </div>
-    </div>
-    """)
+# ──────────────────────────────────────────────────────────────────────────────
+# Gradio interface
+# ──────────────────────────────────────────────────────────────────────────────
 
-    # Info box (70% width)
-    gr.HTML("""
-    <div class="info-box">
-        <div class="info-content">
-            <div class="info-item">
-                <strong>Private by design.</strong>
-                <span>Files are processed in-memory and automatically deleted. Nothing is stored or logged.</span>
-            </div>
-            <div class="info-item">
-                <strong>Open source.</strong>
-                <span>See the full code on GitHub.</span>
-            </div>
-        </div>
-    </div>
-    """)
+_THEME = gr.themes.Default().set(
+    body_background_fill="#f5f2ed",
+    body_text_color="#4a4a4a",
+    body_text_color_subdued="#7a7a7a",
+    background_fill_primary="#faf8f4",
+    background_fill_secondary="#ebe6dd",
+    border_color_primary="#d0c9be",
+    color_accent="#c45a2d",
+    button_primary_background_fill="#c45a2d",
+    button_primary_background_fill_hover="#6b3a2a",
+    button_primary_text_color="#faf8f4",
+    button_primary_border_color="transparent",
+    button_primary_border_color_hover="transparent",
+    input_background_fill="#faf8f4",
+    input_border_color="#d0c9be",
+    input_border_color_focus="#c45a2d",
+)
 
-    # Main content column (70% width with background)
+with gr.Blocks(title="PPTX Builder") as app:
+
+    gr.HTML(_HEADER)
+    gr.HTML(_INFO_STRIP)
+
     with gr.Column(elem_id="main-content"):
-        gr.Markdown("""
-            **Supported formats:** PDF, PNG, JPG, JPEG, TIFF, WebP, BMP, GIF, ICO, HEIC, HEIF
-            """)
+        gr.HTML('<p class="atm-formats">Accepts &nbsp;PDF &middot; PNG &middot; JPG &middot; TIFF &middot; WebP &middot; BMP &middot; GIF &middot; ICO &middot; HEIC &middot; HEIF</p>')
 
         with gr.Row():
             with gr.Column():
                 files = gr.File(
-                    label="Upload PDF or Images",
+                    label="Upload files",
                     file_count="multiple",
+                    height=240,
                     file_types=[
-                    ".pdf",
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".tif",
-                    ".tiff",
-                    ".webp",
-                    ".bmp",
-                    ".gif",
-                    ".ico",
-                    ".heic",
-                    ".heif",
-                ],
+                        ".pdf",
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".tif",
+                        ".tiff",
+                        ".webp",
+                        ".bmp",
+                        ".gif",
+                        ".ico",
+                        ".heic",
+                        ".heif",
+                    ],
                 )
-
                 slide_size = gr.Dropdown(
                     choices=list(SLIDE_SIZE_OPTIONS.keys()),
                     value="16:9 (Widescreen)",
-                    label="Slide Size",
+                    label="Slide size",
                 )
-
                 fit_mode = gr.Radio(
                     choices=["Fit whole image", "Crop to fill"],
                     value="Fit whole image",
-                    label="Image Placement",
+                    label="Image placement",
                 )
-
                 dpi = gr.Slider(
-                    minimum=150, maximum=600, value=150, step=50, label="PDF Conversion DPI"
+                    minimum=150,
+                    maximum=600,
+                    value=150,
+                    step=50,
+                    label="PDF conversion DPI",
                 )
-
                 output_name = gr.Textbox(
-                    label="Output Filename (optional)",
-                    placeholder="Leave empty to use input filename",
+                    label="Output filename",
+                    placeholder="Leave empty to use the input filename",
                     value="",
                 )
-
-                submit_btn = gr.Button("Create Presentation", variant="primary")
+                submit_btn = gr.Button("Create presentation", variant="primary")
 
             with gr.Column():
+                gr.HTML(_HOW_IT_WORKS)
                 output = gr.File(label="Download PPTX")
 
-                gr.Markdown("""
-                    ### How it works:
-                    1. Upload one or more PDFs or images
-                    2. Choose slide size and placement mode
-                    3. Click "Create Presentation"
-                    4. Download your PPTX file
-
-                    **Note:** Temp files are cleaned up automatically after 1 hour.
-                    """)
-
-        # Connect interface
         submit_btn.click(
             fn=process_files,
             inputs=[files, slide_size, fit_mode, dpi, output_name],
             outputs=output,
         )
 
-    # Footer with branding (70% width)
-    gr.HTML("""
-        <div class="footer-container">
-            <div class="footer">
-                <p>
-                    Created by Andrew T. Marcus |
-                    <a href="https://github.com/sageframe-no-kaji/pptx-builder" \
-target="_blank">View source on GitHub</a>
-                </p>
-            </div>
-        </div>
-        """)
+    gr.HTML(_FOOTER)
 
-if __name__ == "__main__":
-    # Clean up old files on startup
+
+def launch_app():
     cleanup_old_files()
-
+    _pkg_dir = Path(__file__).parent
     app.launch(
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        allowed_paths=[str(Path(__file__).parent)],
+        allowed_paths=[str(_pkg_dir)],
+        favicon_path=str(_pkg_dir / "favicon.ico"),
+        theme=_THEME,
+        css=custom_css,
+        head=_FONTS_HEAD,
+        footer_links=[],
     )
+
+
+if __name__ == "__main__":
+    launch_app()
