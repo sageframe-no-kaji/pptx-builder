@@ -7,6 +7,7 @@ import time
 import shutil
 import tempfile
 import logging
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch, MagicMock, PropertyMock
 from PIL import Image
@@ -540,12 +541,11 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb", "--verbose"]),
-            patch("builtins.input", side_effect=[str(pdf), "1", "1"]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.build_presentation"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "--verbose"]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
             main()
 
     # ── interactive: PDF, no --output ─────────────────────────────────────────
@@ -557,12 +557,11 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb"]),
-            patch("builtins.input", side_effect=[str(pdf), "1", "1"]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.build_presentation"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb"]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
             main()
         assert "saved" in capsys.readouterr().out.lower()
 
@@ -576,12 +575,11 @@ class TestMainEntrypoint:
         page = pages_dir / "p.png"
         _make_image(page)
         out_name = str(tmp_path / "custom")
-        with (
-            patch("sys.argv", ["pb", "--output", out_name]),
-            patch("builtins.input", side_effect=[str(pdf), "1", "1"]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.build_presentation"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "--output", out_name]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
             main()
         assert "saved" in capsys.readouterr().out.lower()
 
@@ -589,11 +587,10 @@ class TestMainEntrypoint:
     @pytest.mark.integration
     def test_interactive_folder(self, tmp_path, capsys):
         _make_image(tmp_path / "a.png")
-        with (
-            patch("sys.argv", ["pb"]),
-            patch("builtins.input", side_effect=[str(tmp_path), "slides", "2", "1"]),
-            patch("pptx_builder.core.build_presentation"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb"]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(tmp_path), "slides", "2", "1"]))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
             main()
         assert "saved" in capsys.readouterr().out.lower()
 
@@ -601,10 +598,9 @@ class TestMainEntrypoint:
     def test_interactive_unknown_exits(self, tmp_path):
         txt = tmp_path / "f.txt"
         txt.touch()
-        with (
-            patch("sys.argv", ["pb"]),
-            patch("builtins.input", return_value=str(txt)),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb"]))
+            stack.enter_context(patch("builtins.input", return_value=str(txt)))
             with pytest.raises(SystemExit) as exc:
                 main()
         assert exc.value.code == 1
@@ -615,12 +611,11 @@ class TestMainEntrypoint:
         sub.mkdir()
         # Patch detect_input_type to return "folder" so we enter the folder branch,
         # then patch list_images to return [] so the "No images" exit fires.
-        with (
-            patch("sys.argv", ["pb"]),
-            patch("builtins.input", side_effect=[str(sub), "", "2", "1"]),
-            patch("pptx_builder.core.detect_input_type", return_value="folder"),
-            patch("pptx_builder.core.list_images", return_value=[]),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb"]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(sub), "", "2", "1"]))
+            stack.enter_context(patch("pptx_builder.core.detect_input_type", return_value="folder"))
+            stack.enter_context(patch("pptx_builder.core.list_images", return_value=[]))
             with pytest.raises(SystemExit) as exc:
                 main()
         assert exc.value.code == 1
@@ -633,13 +628,12 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb"]),
-            patch("builtins.input", side_effect=[str(pdf), "1", "1"]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.build_presentation"),
-            patch("shutil.rmtree", side_effect=PermissionError("locked")),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb"]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
+            stack.enter_context(patch("shutil.rmtree", side_effect=PermissionError("locked")))
             main()  # must not raise despite rmtree failing
 
     # ── interactive: build exception → sys.exit(1) ────────────────────────────
@@ -650,12 +644,11 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb"]),
-            patch("builtins.input", side_effect=[str(pdf), "1", "1"]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.build_presentation", side_effect=RuntimeError("oops")),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb"]))
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.build_presentation", side_effect=RuntimeError("oops")))
             with pytest.raises(SystemExit) as exc:
                 main()
         assert exc.value.code == 1
@@ -683,12 +676,11 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb", "-i", str(pdf)]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-            patch("pptx_builder.core.build_presentation"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(pdf)]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
             main()
         assert "saved" in capsys.readouterr().out.lower()
 
@@ -701,12 +693,11 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb", "-i", str(pdf), "-o", "custom"]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-            patch("pptx_builder.core.build_presentation"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(pdf), "-o", "custom"]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
             main()
         assert "saved" in capsys.readouterr().out.lower()
 
@@ -720,12 +711,11 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb", "-i", str(pdf)]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-            patch("pptx_builder.core.confirm_overwrite", return_value=False),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(pdf)]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
+            stack.enter_context(patch("pptx_builder.core.confirm_overwrite", return_value=False))
             main()
         assert "Skipped" in capsys.readouterr().out
 
@@ -733,30 +723,27 @@ class TestMainEntrypoint:
     def test_cli_pdf_conversion_error(self, tmp_path, capsys):
         pdf = tmp_path / "d.pdf"
         pdf.touch()
-        with (
-            patch("sys.argv", ["pb", "-i", str(pdf)]),
-            patch("pptx_builder.core.convert_pdf_to_images", side_effect=RuntimeError("fail")),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(pdf)]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", side_effect=RuntimeError("fail")))
             main()
         assert "Failed" in capsys.readouterr().out
 
     # ── CLI: folder mode ──────────────────────────────────────────────────────
     def test_cli_folder_mode(self, tmp_path, capsys):
         _make_image(tmp_path / "a.png")
-        with (
-            patch("sys.argv", ["pb", "-i", str(tmp_path)]),
-            patch("pptx_builder.core.process_folder") as mock_pf,
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(tmp_path)]))
+            mock_pf = stack.enter_context(patch("pptx_builder.core.process_folder"))
             main()
         mock_pf.assert_called_once()
 
     # ── CLI: folder exception ─────────────────────────────────────────────────
     def test_cli_folder_exception(self, tmp_path, capsys):
         _make_image(tmp_path / "a.png")
-        with (
-            patch("sys.argv", ["pb", "-i", str(tmp_path)]),
-            patch("pptx_builder.core.process_folder", side_effect=Exception("boom")),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(tmp_path)]))
+            stack.enter_context(patch("pptx_builder.core.process_folder", side_effect=Exception("boom")))
             main()
         assert "failed" in capsys.readouterr().out.lower()
 
@@ -769,22 +756,20 @@ class TestMainEntrypoint:
         pages_dir.mkdir()
         page = pages_dir / "p.png"
         _make_image(page)
-        with (
-            patch("sys.argv", ["pb", "-i", str(pdf)]),
-            patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-            patch("pptx_builder.core.build_presentation"),
-            patch("shutil.rmtree", side_effect=PermissionError("locked")),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(pdf)]))
+            stack.enter_context(patch("pptx_builder.core.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.core.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
+            stack.enter_context(patch("pptx_builder.core.build_presentation"))
+            stack.enter_context(patch("shutil.rmtree", side_effect=PermissionError("locked")))
             main()  # must not raise
 
     # ── CLI: --quiet suppresses completion message ────────────────────────────
     def test_cli_quiet_no_completion_message(self, tmp_path, capsys):
         _make_image(tmp_path / "a.png")
-        with (
-            patch("sys.argv", ["pb", "-i", str(tmp_path), "--quiet"]),
-            patch("pptx_builder.core.process_folder"),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("sys.argv", ["pb", "-i", str(tmp_path), "--quiet"]))
+            stack.enter_context(patch("pptx_builder.core.process_folder"))
             main()
         assert "complete" not in capsys.readouterr().out.lower()
 
@@ -911,11 +896,10 @@ class TestWebProcessFiles:
         pdf_path = str(tmp_path / "doc.pdf")
         Path(pdf_path).touch()
 
-        with (
-            patch("pptx_builder.web.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.web.build_presentation"),
-            patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("pptx_builder.web.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.web.build_presentation"))
+            stack.enter_context(patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
             process_files([pdf_path], "16:9 (Widescreen)", "Fit whole image")
 
         assert pages_dir in web_module.TEMP_DIRS
@@ -934,11 +918,10 @@ class TestWebProcessFiles:
         def mock_build(images, **kw):
             captured.extend(images)
 
-        with (
-            patch("pptx_builder.web.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.web.build_presentation", side_effect=mock_build),
-            patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("pptx_builder.web.convert_pdf_to_images", return_value=[page]))
+            stack.enter_context(patch("pptx_builder.web.build_presentation", side_effect=mock_build))
+            stack.enter_context(patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
             process_files([pdf_path, img_a], "16:9 (Widescreen)", "Fit whole image")
 
         assert captured[0] == page  # PDF page first, not z_last.png
@@ -952,10 +935,9 @@ class TestWebProcessFiles:
     def test_no_images_after_pdf_returns_none(self, tmp_path):
         pdf_path = str(tmp_path / "empty.pdf")
         Path(pdf_path).touch()
-        with (
-            patch("pptx_builder.web.convert_pdf_to_images", return_value=[]),
-            patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(10.0, 7.5)),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("pptx_builder.web.convert_pdf_to_images", return_value=[]))
+            stack.enter_context(patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(10.0, 7.5)))
             result = process_files([pdf_path], "16:9 (Widescreen)", "Fit whole image")
         assert result is None
 
@@ -968,11 +950,10 @@ class TestWebProcessFiles:
         pdf_path = str(tmp_path / "doc.pdf")
         Path(pdf_path).touch()
 
-        with (
-            patch("pptx_builder.web.convert_pdf_to_images", return_value=[page]),
-            patch("pptx_builder.web.build_presentation") as mock_build,
-            patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(11.0, 8.5)),
-        ):
+        with ExitStack() as stack:
+            stack.enter_context(patch("pptx_builder.web.convert_pdf_to_images", return_value=[page]))
+            mock_build = stack.enter_context(patch("pptx_builder.web.build_presentation"))
+            stack.enter_context(patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(11.0, 8.5)))
             process_files([pdf_path], "16:9 (Widescreen)", "Fit whole image")
 
         _, kw = mock_build.call_args
