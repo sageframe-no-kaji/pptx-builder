@@ -141,6 +141,8 @@ def place_picture_fit(slide, img_path: Path, slide_w_emu: int, slide_h_emu: int)
     pic = slide.shapes.add_picture(str(img_path), left=0, top=0)  # natural size first
     img_w = float(pic.width)
     img_h = float(pic.height)
+    if img_w == 0 or img_h == 0:
+        raise ValueError(f"Image {img_path.name} has zero dimensions and cannot be placed on a slide.")
     sw = float(slide_w_emu)
     sh = float(slide_h_emu)
 
@@ -169,6 +171,8 @@ def place_picture_fill(slide, img_path: Path, slide_w_emu: int, slide_h_emu: int
     pic = slide.shapes.add_picture(str(img_path), left=0, top=0)  # natural size first
     img_w = float(pic.width)
     img_h = float(pic.height)
+    if img_w == 0 or img_h == 0:
+        raise ValueError(f"Image {img_path.name} has zero dimensions and cannot be placed on a slide.")
     sw = float(slide_w_emu)
     sh = float(slide_h_emu)
 
@@ -304,39 +308,29 @@ def detect_input_type(path: Path) -> str:
 
 
 def convert_pdf_to_images(pdf_path: Path, dpi: int) -> List[Path]:
-    """Convert PDF pages to temporary PNG files."""
+    """Convert PDF pages to PNG files in a temporary directory.
+
+    Uses pdf2image's output_folder + paths_only mode to stream pages directly
+    to disk without accumulating all decoded pixels in RAM simultaneously.
+    Callers are responsible for cleaning up the returned paths' parent directory.
+    """
     import tempfile  # noqa: E402
 
-    logger.debug(f"Starting PDF conversion: {pdf_path}")
-    logger.debug(f"PDF exists: {pdf_path.exists()}")
-    logger.debug(f"PDF size: {pdf_path.stat().st_size if pdf_path.exists() else 'N/A'}")
+    logger.debug(f"Converting PDF: {pdf_path} at {dpi} DPI")
 
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_pdf_"))
-    logger.debug(f"Created temp dir: {temp_dir}")
-
     try:
-        logger.debug(f"Calling convert_from_path with dpi={dpi}")
-        pages = convert_from_path(pdf_path.as_posix(), dpi=dpi)
-        logger.debug(f"Got {len(pages)} pages from PDF")
-        out_paths = []
-
-        # Convert pages with progress bar
-        page_iter = tqdm(
-            enumerate(pages, start=1),
-            total=len(pages),
-            desc="Converting PDF pages",
-            unit="page",
+        out_paths = convert_from_path(
+            pdf_path.as_posix(),
+            dpi=dpi,
+            output_folder=str(temp_dir),
+            fmt="png",
+            paths_only=True,
         )
-        for i, page in page_iter:
-            out_path = temp_dir / f"page_{i:04d}.png"
-            page.save(out_path, "PNG")
-            out_paths.append(out_path)
-            logger.debug(f"Saved page {i} to {out_path}")
-
-        logger.debug(f"Successfully converted {len(out_paths)} pages")
-        return out_paths
+        result = [Path(p) for p in out_paths]
+        logger.debug(f"Converted {len(result)} pages to {temp_dir}")
+        return result
     except Exception as e:
-        # Clean up temp directory on failure
         import shutil
         import traceback
 
@@ -369,10 +363,11 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
     pdfs = sorted(folder.glob("*.pdf"))
     imgs = [p for p in folder.iterdir() if p.suffix.lower() in ALLOWED_EXTS]
 
-    # Recurse if requested
+    # Recurse into immediate children only — rglob would visit each subdir multiple
+    # times (once from the root and again from each ancestor's recursive call).
     if recursive:
-        for sub in folder.rglob("*"):
-            if sub.is_dir() and sub != folder:
+        for sub in folder.iterdir():
+            if sub.is_dir():
                 process_folder(sub, recursive, dpi, quiet)
 
     # If both PDFs and images exist — prioritize PDFs, warn user
@@ -393,9 +388,17 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
             out_name = item.stem + ".pptx"
             out_path = folder / out_name
             print(f"📄 Converting PDF → PPTX: {item.name} → {out_name}")
-            pages = convert_pdf_to_images(item, dpi=dpi)
-            w_in, h_in = pdf_first_page_size_inches(item)
-            build_presentation(pages, out_path, w_in, h_in, "fit", show_progress=True)
+            pdf_temp_dir = None
+            try:
+                pages = convert_pdf_to_images(item, dpi=dpi)
+                if pages:
+                    pdf_temp_dir = pages[0].parent
+                w_in, h_in = pdf_first_page_size_inches(item)
+                build_presentation(pages, out_path, w_in, h_in, "fit", show_progress=True)
+            finally:
+                if pdf_temp_dir and pdf_temp_dir.exists():
+                    import shutil
+                    shutil.rmtree(pdf_temp_dir, ignore_errors=True)
         else:
             # Image folder
             imgs = list_images(item if item.is_dir() else folder)
@@ -405,17 +408,12 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
             out_path = folder / out_name
             print(f"🖼️  Building PPTX from {len(imgs)} images → {out_name}")
 
-            # Detect aspect ratio from first image
+            # Detect aspect ratio from first image using its native dimensions.
             from PIL import Image
 
             with Image.open(imgs[0]) as im:
-                w_in, h_in = (
-                    im.width / 96,
-                    im.height / 96,
-                )  # assume 96 DPI if not embedded
-                # normalize: ensure landscape orientation for convenience
-                if w_in < h_in:
-                    w_in, h_in = h_in, w_in
+                w_in = im.width / 96
+                h_in = im.height / 96  # assume 96 DPI if not embedded
 
             build_presentation(imgs, out_path, w_in, h_in, "fit", show_progress=True)
 
@@ -436,7 +434,7 @@ def main():
     # Validate --output usage
     if args.output and args.input and len(args.input) > 1:
         print("✗ Error: --output can only be used with a single input file.")
-        return
+        sys.exit(1)
 
     # Interactive fallback if no input flag provided
     if not args.input:
@@ -448,18 +446,16 @@ def main():
             print("✗ That path is not a PDF or an image folder. Exiting.")
             sys.exit(1)
 
-        out_name = prompt_output_name(default_name="slides")
         if in_path.is_dir():
+            out_name = prompt_output_name(default_name="slides")
             output_path = (in_path / out_name).resolve()
+        elif args.output:
+            out_name = args.output
+            if not out_name.lower().endswith(".pptx"):
+                out_name = out_name + ".pptx"
+            output_path = in_path.parent / out_name
         else:
-            # Use --output if provided, otherwise use input name
-            if args.output:
-                out_name = args.output
-                if not out_name.lower().endswith(".pptx"):
-                    out_name = out_name + ".pptx"
-                output_path = in_path.parent / out_name
-            else:
-                output_path = in_path.with_suffix(".pptx")
+            output_path = in_path.with_suffix(".pptx")
 
         width_in, height_in = prompt_slide_size()
         mode = prompt_fit_mode()  # Let user choose fit or fill
@@ -588,5 +584,5 @@ def main():
         print("\n✅ CLI execution complete.")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

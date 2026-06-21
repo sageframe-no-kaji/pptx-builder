@@ -44,10 +44,12 @@ def cleanup_temp_files():
 def cleanup_old_files():
     temp_base = Path(tempfile.gettempdir())
     current_time = time.time()
-    for item in temp_base.glob("pptx_builder_*"):
-        if item.is_dir():
-            if current_time - item.stat().st_mtime > 3600:
+    for prefix in ("pptx_builder_", "pptx_pdf_"):
+        for item in temp_base.glob(f"{prefix}*"):
+            if item.is_dir() and current_time - item.stat().st_mtime > 3600:
                 shutil.rmtree(item, ignore_errors=True)
+    # Prune TEMP_DIRS entries whose directories have already been removed.
+    TEMP_DIRS[:] = [d for d in TEMP_DIRS if d.exists()]
 
 
 atexit.register(cleanup_temp_files)
@@ -89,11 +91,16 @@ def process_files(
 
         mode = "fit" if fit_mode == "Fit whole image" else "fill"
         image_files = []
+        has_pdf = False
 
         for file in files:
             file_path = Path(file)
             if file_path.suffix.lower() == ".pdf":
+                has_pdf = True
                 pdf_images = convert_pdf_to_images(file_path, dpi=dpi)
+                # Track the PDF temp dir so both atexit and cleanup_old_files collect it.
+                if pdf_images:
+                    TEMP_DIRS.append(pdf_images[0].parent)
                 image_files.extend(pdf_images)
             else:
                 image_files.append(file_path)
@@ -101,10 +108,14 @@ def process_files(
         if not image_files:
             return None
 
-        image_files.sort(key=lambda p: p.name.lower())
+        # Sort by filename only for pure-image uploads. For mixed or PDF uploads,
+        # preserve the upload order so PDF page sequence is not broken.
+        if not has_pdf:
+            image_files.sort(key=lambda p: p.name.lower())
 
         if output_name and output_name.strip():
-            output_filename = output_name.strip()
+            # Use Path().name to strip any directory components and prevent traversal.
+            output_filename = Path(output_name.strip()).name
             if not output_filename.lower().endswith(".pptx"):
                 output_filename += ".pptx"
         elif len(files) == 1:
@@ -862,5 +873,5 @@ def launch_app():
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     launch_app()
