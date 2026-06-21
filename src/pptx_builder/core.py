@@ -142,7 +142,9 @@ def place_picture_fit(slide, img_path: Path, slide_w_emu: int, slide_h_emu: int)
     img_w = float(pic.width)
     img_h = float(pic.height)
     if img_w == 0 or img_h == 0:
-        raise ValueError(f"Image {img_path.name} has zero dimensions and cannot be placed on a slide.")
+        raise ValueError(
+            f"Image {img_path.name} has zero dimensions and cannot be placed on a slide."
+        )
     sw = float(slide_w_emu)
     sh = float(slide_h_emu)
 
@@ -172,7 +174,9 @@ def place_picture_fill(slide, img_path: Path, slide_w_emu: int, slide_h_emu: int
     img_w = float(pic.width)
     img_h = float(pic.height)
     if img_w == 0 or img_h == 0:
-        raise ValueError(f"Image {img_path.name} has zero dimensions and cannot be placed on a slide.")
+        raise ValueError(
+            f"Image {img_path.name} has zero dimensions and cannot be placed on a slide."
+        )
     sw = float(slide_w_emu)
     sh = float(slide_h_emu)
 
@@ -307,26 +311,29 @@ def detect_input_type(path: Path) -> str:
     return "unknown"
 
 
-def convert_pdf_to_images(pdf_path: Path, dpi: int) -> List[Path]:
+def convert_pdf_to_images(pdf_path: Path, dpi: int, max_pages: int = 0) -> List[Path]:
     """Convert PDF pages to PNG files in a temporary directory.
 
     Uses pdf2image's output_folder + paths_only mode to stream pages directly
     to disk without accumulating all decoded pixels in RAM simultaneously.
     Callers are responsible for cleaning up the returned paths' parent directory.
+    max_pages=0 means no limit.
     """
     import tempfile  # noqa: E402
 
     logger.debug(f"Converting PDF: {pdf_path} at {dpi} DPI")
 
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_pdf_"))
+    kwargs: dict = dict(
+        dpi=dpi,
+        output_folder=str(temp_dir),
+        fmt="png",
+        paths_only=True,
+    )
+    if max_pages > 0:
+        kwargs["last_page"] = max_pages
     try:
-        out_paths = convert_from_path(
-            pdf_path.as_posix(),
-            dpi=dpi,
-            output_folder=str(temp_dir),
-            fmt="png",
-            paths_only=True,
-        )
+        out_paths = convert_from_path(pdf_path.as_posix(), **kwargs)
         result = [Path(p) for p in out_paths]
         logger.debug(f"Converted {len(result)} pages to {temp_dir}")
         return result
@@ -398,6 +405,7 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
             finally:
                 if pdf_temp_dir and pdf_temp_dir.exists():
                     import shutil
+
                     shutil.rmtree(pdf_temp_dir, ignore_errors=True)
         else:
             # Image folder

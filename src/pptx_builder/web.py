@@ -3,6 +3,7 @@
 
 import gradio as gr
 import logging
+import os
 import tempfile
 import shutil
 import atexit
@@ -29,8 +30,10 @@ SLIDE_SIZE_OPTIONS = {
     'Tabloid (17" x 11")': (17.0, 11.0),
 }
 
-MAX_FILE_SIZE = 50 * 1024 * 1024
-MAX_FILES = 100
+MAX_FILE_SIZE = int(os.environ.get("PPTX_MAX_FILE_MB", "50")) * 1024 * 1024
+MAX_FILES = int(os.environ.get("PPTX_MAX_FILES", "100"))
+MAX_DPI = int(os.environ.get("PPTX_MAX_DPI", "600"))
+MAX_PDF_PAGES = int(os.environ.get("PPTX_MAX_PDF_PAGES", "0"))  # 0 = unlimited
 TEMP_DIRS: List[Path] = []
 
 
@@ -73,9 +76,8 @@ def process_files(
     for file in files:
         file_path = Path(file)
         if file_path.exists() and file_path.stat().st_size > MAX_FILE_SIZE:
-            raise gr.Error(
-                f"File too large: {file_path.name}. Maximum 50MB per file."
-            )
+            mb = MAX_FILE_SIZE // (1024 * 1024)
+            raise gr.Error(f"File too large: {file_path.name}. Maximum {mb}MB per file.")
 
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_builder_"))
     TEMP_DIRS.append(temp_dir)
@@ -85,9 +87,7 @@ def process_files(
 
         if len(files) == 1 and Path(files[0]).suffix.lower() == ".pdf":
             width_in, height_in = pdf_first_page_size_inches(Path(files[0]))
-            logger.debug(
-                f"Auto-detected PDF aspect ratio: {width_in:.2f}x{height_in:.2f}"
-            )
+            logger.debug(f"Auto-detected PDF aspect ratio: {width_in:.2f}x{height_in:.2f}")
 
         mode = "fit" if fit_mode == "Fit whole image" else "fill"
         image_files = []
@@ -97,7 +97,7 @@ def process_files(
             file_path = Path(file)
             if file_path.suffix.lower() == ".pdf":
                 has_pdf = True
-                pdf_images = convert_pdf_to_images(file_path, dpi=dpi)
+                pdf_images = convert_pdf_to_images(file_path, dpi=dpi, max_pages=MAX_PDF_PAGES)
                 # Track the PDF temp dir so both atexit and cleanup_old_files collect it.
                 if pdf_images:
                     TEMP_DIRS.append(pdf_images[0].parent)
@@ -174,7 +174,16 @@ _HEADER = f"""
 </div>
 """
 
-_INFO_STRIP = """
+
+def _build_info_strip() -> str:
+    mb = MAX_FILE_SIZE // (1024 * 1024)
+    parts = [f"{mb}&nbsp;MB per file", f"{MAX_FILES} files max"]
+    if MAX_DPI < 600:
+        parts.append(f"{MAX_DPI}&nbsp;DPI max")
+    if MAX_PDF_PAGES > 0:
+        parts.append(f"{MAX_PDF_PAGES} pages per PDF")
+    limits = " &middot; ".join(parts)
+    return f"""
 <div class="atm-info-strip-wrap">
   <div class="atm-info-strip">
     <div class="atm-info-item">
@@ -186,11 +195,14 @@ _INFO_STRIP = """
       <strong class="atm-info-label">Open source.</strong><span class="atm-info-desc">A <a href="https://sageframe.net" target="_blank" class="atm-link">Sageframe</a> project &mdash; <a href="https://github.com/sageframe-no-kaji/pptx-builder" target="_blank" class="atm-link atm-link-nowrap">view&nbsp;source&nbsp;on&nbsp;GitHub&nbsp;&rarr;</a></span>
     </div>
     <div class="atm-info-item">
-      <strong class="atm-info-label">Demo limits.</strong><span class="atm-info-desc">50&nbsp;MB per file &middot; 100 files max. <a href="https://github.com/sageframe-no-kaji/pptx-builder" target="_blank" class="atm-link atm-link-nowrap">Self-host&nbsp;&rarr;</a> for no limits and 100% privacy.</span>
+      <strong class="atm-info-label">Demo limits.</strong><span class="atm-info-desc">{limits}. <a href="https://github.com/sageframe-no-kaji/pptx-builder" target="_blank" class="atm-link atm-link-nowrap">Self-host&nbsp;&rarr;</a> for no limits and 100% privacy.</span>
     </div>
   </div>
 </div>
 """
+
+
+_INFO_STRIP = _build_info_strip()
 
 _HOW_IT_WORKS = """
 <div class="atm-how">
@@ -797,7 +809,9 @@ with gr.Blocks(title="PPTX Builder") as app:
     gr.HTML(_INFO_STRIP)
 
     with gr.Column(elem_id="main-content"):
-        gr.HTML('<p class="atm-formats">Accepts &nbsp;PDF &middot; PNG &middot; JPG &middot; TIFF &middot; WebP &middot; BMP &middot; GIF &middot; ICO &middot; HEIC &middot; HEIF</p>')
+        gr.HTML(
+            '<p class="atm-formats">Accepts &nbsp;PDF &middot; PNG &middot; JPG &middot; TIFF &middot; WebP &middot; BMP &middot; GIF &middot; ICO &middot; HEIC &middot; HEIF</p>'
+        )
 
         with gr.Row():
             with gr.Column():
@@ -832,8 +846,8 @@ with gr.Blocks(title="PPTX Builder") as app:
                 )
                 dpi = gr.Slider(
                     minimum=150,
-                    maximum=600,
-                    value=150,
+                    maximum=MAX_DPI,
+                    value=min(150, MAX_DPI),
                     step=50,
                     label="PDF conversion DPI",
                 )
