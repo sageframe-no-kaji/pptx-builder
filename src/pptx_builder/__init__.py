@@ -2,7 +2,7 @@
 pptx-builder - Convert PDFs and images to PowerPoint presentations
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .core import build_presentation, convert_pdf_to_images, list_images
 
