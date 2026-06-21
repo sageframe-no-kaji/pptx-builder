@@ -507,7 +507,7 @@ class TestProcessFolder:
         pages_dir = tmp_path / "pages"
         pages_dir.mkdir()
         page = pages_dir / "p.png"
-        page.touch()
+        _make_image(page)  # real image so PIL can read dimensions if needed
         mock_cv.return_value = [page]
 
         process_folder(tmp_path, recursive=True, dpi=150, quiet=True)
