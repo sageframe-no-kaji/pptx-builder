@@ -62,6 +62,31 @@ The `cleanup` service runs daily to remove files older than 30 days:
 
 ## Customization
 
+### Configure Limits
+
+The web UI enforces limits via environment variables. Self-hosted deployments have no defaults applied — set these in `docker-compose.yml` to restrict usage:
+
+| Variable | Default | Description |
+|---|---|---|
+| `PPTX_MAX_FILE_MB` | `50` | Max file size per upload (MB) |
+| `PPTX_MAX_FILES` | `100` | Max number of files per batch |
+| `PPTX_MAX_DPI` | `600` | Max DPI for PDF conversion |
+| `PPTX_MAX_PDF_PAGES` | `0` | Max pages per PDF (`0` = unlimited) |
+
+Example — restricting a public demo:
+
+```yaml
+environment:
+  - PPTX_MAX_FILE_MB=20
+  - PPTX_MAX_FILES=20
+  - PPTX_MAX_DPI=300
+  - PPTX_MAX_PDF_PAGES=20
+```
+
+See `.env.example` for a copy-paste starting point.
+
+---
+
 ### Change Port
 
 Edit `docker-compose.yml`:

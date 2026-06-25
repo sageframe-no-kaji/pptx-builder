@@ -28,9 +28,9 @@ A limited public demo is available:
 
 **Demo limits:**
 
-- Maximum file size: 20MB per file
-- Maximum files per upload: 15
-- Maximum PDF length: 100 pages
+- Maximum file size: 20 MB per file
+- Maximum files per upload: 20
+- Maximum PDF pages: 20
 - Maximum DPI: 300
 
 Files are processed in memory and automatically deleted.
