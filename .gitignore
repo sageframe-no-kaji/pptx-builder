@@ -55,6 +55,9 @@ htmlcov/
 # Private/internal documentation
 private/
 
+# Ho System process documents (private nested repo)
+ho-process/
+
 # Output files (examples)
 *.pptx
 temp_*
