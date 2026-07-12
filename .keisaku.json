@@ -1,0 +1,61 @@
+{
+  "keisaku": 1,
+  "works": [
+    {
+      "id": "image-2-ppt-dev",
+      "name": "PPTX Builder",
+      "tags": [
+        "python",
+        "python-pptx",
+        "pillow",
+        "pymupdf",
+        "pdf2image",
+        "pillow-heif",
+        "tqdm"
+      ],
+      "media": [
+        "software"
+      ],
+      "status": "shipped",
+      "repo": "git@github-no-kaji:sageframe-no-kaji/pptx-builder.git",
+      "license": "MIT",
+      "tech_stack": "Python (python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif, tqdm)",
+      "created": "2025-10-23",
+      "last_updated": "2026-07-09",
+      "state": {
+        "stage": "production",
+        "last": "v0.2.1 shipped: env-var config for limits (file size, upload count, PDF page cap, DPI cap), Docker/self-hosted documentation, `.env.example`, project icon, web UI revamp with ATM brand system, 100% test coverage, PyPI publish workflow, Python 3.8 compatibility fixes. Last meaningful commit: `bde691c` (\"Docs, env example, and icon for v0.2.1\", 2026-06-24).",
+        "next": "unset — practitioner to point (K6 seeded retroactively). Candidates from private notes: v0.3 feature work (see `private/gameplan.md`) or hardening/promotion to beta status. No open ho documents found.",
+        "as_of": "2026-07-09"
+      },
+      "_keisaku": {
+        "generated_at": "2026-07-11T13:34:17",
+        "generator_version": "1",
+        "sources": {
+          "readme": "README.md",
+          "contract": "ho-process/kamae-6-image_2_ppt-state-memory.md",
+          "manifest": "pyproject.toml"
+        },
+        "derived_defaults": {
+          "id": "image-2-ppt-dev",
+          "name": "PPTX Builder",
+          "media": [
+            "software"
+          ],
+          "status": "shipped",
+          "created": "2025-10-23",
+          "tags": [
+            "python",
+            "python-pptx",
+            "pillow",
+            "pymupdf",
+            "pdf2image",
+            "pillow-heif",
+            "tqdm"
+          ]
+        },
+        "contract_issues": []
+      }
+    }
+  ]
+}
