@@ -31,9 +31,17 @@ from pptx_builder.core import (
     pdf_first_page_size_inches,
     process_folder,
     parse_cli_args,
+    prompt_output_format,
     main,
     ALLOWED_EXTS,
     SLIDE_SIZES,
+    OUTPUT_FORMATS,
+    DEFAULT_DPI,
+    DEFAULT_FORMAT,
+    DEFAULT_QUALITY,
+    _normalize_format,
+    _env_int,
+    _env_format,
 )
 import pptx_builder.web as web_module
 from pptx_builder.web import (
@@ -52,6 +60,53 @@ import gradio as gr
 
 def _make_image(path: Path, width: int = 100, height: int = 100, color: str = "red") -> Path:
     Image.new("RGB", (width, height), color=color).save(path)
+    return path
+
+
+def _make_pdf(path: Path, pages: int = 3, width: int = 612, height: int = 792) -> Path:
+    """Write a real multi-page PDF carrying photographic content via PyMuPDF.
+
+    The page content is seeded pseudo-random noise, embedded as a raster image.
+    Content shape matters here: flat fills and hard-edged bands compress better
+    under PNG's row filters than under JPEG's DCT, so a synthetic banded page
+    would show JPEG *larger* and misrepresent what real slides do. Noise stands
+    in for the photographic content that makes JPEG the smaller encoder.
+    """
+    import math
+    import random
+
+    import fitz
+
+    rng = random.Random(1729)
+    # Source raster is sized to the rendered page so it is not upscaled — an
+    # upscaled image renders as hard-edged blocks, which PNG compresses well and
+    # JPEG does not, inverting the property under test.
+    px_w, px_h = int(width * 1.4), int(height * 1.4)
+    doc = fitz.open()
+    for n in range(pages):
+        # Smooth two-dimensional gradient plus fine jitter: the texture profile of
+        # a photograph. Smoothness is what JPEG's DCT compresses well, and the
+        # per-pixel jitter is what defeats PNG's row filters.
+        buf = bytearray()
+        for y in range(px_h):
+            fy = y / px_h
+            for x in range(px_w):
+                fx = x / px_w
+                base = 128 + 100 * math.sin(fx * 3.1 + n) * math.cos(fy * 2.7)
+                for shift in (0.0, 2.1, 4.2):
+                    value = base + 40 * math.sin(fx * 5.0 + shift) + rng.uniform(-6, 6)
+                    buf.append(max(0, min(255, int(value))))
+        photo = Image.frombytes("RGB", (px_w, px_h), bytes(buf))
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as handle:
+            photo_path = Path(handle.name)
+        photo.save(photo_path)
+        try:
+            page = doc.new_page(width=width, height=height)
+            page.insert_image(fitz.Rect(0, 0, width, height), filename=str(photo_path))
+        finally:
+            photo_path.unlink()
+    doc.save(str(path))
+    doc.close()
     return path
 
 
@@ -345,7 +400,9 @@ class TestParseCLIArgs:
         with patch("sys.argv", ["pb"]):
             args = parse_cli_args()
         assert args.input is None
-        assert args.dpi == 300
+        assert args.dpi == 200
+        assert args.format == "jpeg"
+        assert args.quality == 85
         assert not args.quiet
         assert not args.verbose
         assert not args.force
@@ -389,8 +446,8 @@ class TestConvertPDFToImages:
         pdf = tmp_path / "t.pdf"
         pdf.touch()
 
-        def fake(path, dpi, output_folder, fmt, paths_only):
-            p = Path(output_folder) / "page-0001.png"
+        def fake(path, dpi, output_folder, fmt, paths_only, **kwargs):
+            p = Path(output_folder) / f"page-0001.{fmt}"
             p.touch()
             return [str(p)]
 
@@ -443,6 +500,176 @@ class TestConvertPDFToImages:
 
 
 # ─── _build_info_strip ────────────────────────────────────────────────────────
+
+
+class TestOutputFormatConfig:
+    """Environment/flag resolution for the output encoder (ho-01)."""
+
+    def test_normalize_folds_jpg_alias(self):
+        assert _normalize_format("JPG") == "jpeg"
+        assert _normalize_format(" Jpeg ") == "jpeg"
+        assert _normalize_format("PNG") == "png"
+
+    def test_builtin_defaults(self):
+        # Guards the ho-01 decision: bare invocation is 200 DPI JPEG q85.
+        assert DEFAULT_DPI == 200
+        assert DEFAULT_FORMAT == "jpeg"
+        assert DEFAULT_QUALITY == 85
+
+    def test_env_int_reads_and_falls_back(self, monkeypatch):
+        monkeypatch.setenv("PPTX_TEST_INT", "42")
+        assert _env_int("PPTX_TEST_INT", 7, minimum=1, maximum=100) == 42
+        # Malformed and out-of-range both fall back rather than raising.
+        monkeypatch.setenv("PPTX_TEST_INT", "banana")
+        assert _env_int("PPTX_TEST_INT", 7, minimum=1, maximum=100) == 7
+        monkeypatch.setenv("PPTX_TEST_INT", "999")
+        assert _env_int("PPTX_TEST_INT", 7, minimum=1, maximum=100) == 7
+
+    def test_env_format_reads_and_falls_back(self, monkeypatch):
+        monkeypatch.setenv("PPTX_TEST_FMT", "png")
+        assert _env_format("PPTX_TEST_FMT", "jpeg") == "png"
+        monkeypatch.setenv("PPTX_TEST_FMT", "jpg")
+        assert _env_format("PPTX_TEST_FMT", "png") == "jpeg"
+        monkeypatch.setenv("PPTX_TEST_FMT", "tiff")
+        assert _env_format("PPTX_TEST_FMT", "jpeg") == "jpeg"
+
+    def test_env_absent_uses_fallback(self, monkeypatch):
+        monkeypatch.delenv("PPTX_TEST_ABSENT", raising=False)
+        assert _env_int("PPTX_TEST_ABSENT", 5, minimum=1, maximum=10) == 5
+        assert _env_format("PPTX_TEST_ABSENT", "png") == "png"
+
+    def test_flag_overrides_environment(self, monkeypatch):
+        # Precedence: explicit flag beats environment beats built-in default.
+        monkeypatch.setenv("PPTX_FORMAT", "png")
+        monkeypatch.setenv("PPTX_QUALITY", "60")
+        import importlib
+
+        import pptx_builder.core as core_mod
+
+        importlib.reload(core_mod)
+        try:
+            assert core_mod.DEFAULT_FORMAT == "png"
+            assert core_mod.DEFAULT_QUALITY == 60
+            with patch("sys.argv", ["pb"]):
+                assert core_mod.parse_cli_args().format == "png"
+            with patch("sys.argv", ["pb", "--format", "jpeg", "--quality", "95"]):
+                args = core_mod.parse_cli_args()
+            assert args.format == "jpeg"
+            assert args.quality == 95
+        finally:
+            monkeypatch.delenv("PPTX_FORMAT", raising=False)
+            monkeypatch.delenv("PPTX_QUALITY", raising=False)
+            importlib.reload(core_mod)
+
+    def test_quality_out_of_range_exits(self):
+        for bad in ("0", "101", "abc"):
+            with patch("sys.argv", ["pb", "--quality", bad]):
+                with pytest.raises(SystemExit) as exc:
+                    parse_cli_args()
+            assert exc.value.code != 0
+
+    def test_quality_accepted_with_png(self):
+        # Accepted and ignored, so scripted callers can pass both unconditionally.
+        with patch("sys.argv", ["pb", "--format", "png", "--quality", "50"]):
+            args = parse_cli_args()
+        assert args.format == "png"
+        assert args.quality == 50
+
+    def test_format_choices_rejects_unknown(self):
+        with patch("sys.argv", ["pb", "--format", "tiff"]):
+            with pytest.raises(SystemExit):
+                parse_cli_args()
+
+    def test_jpg_alias_accepted_on_cli(self):
+        with patch("sys.argv", ["pb", "--format", "jpg"]):
+            assert parse_cli_args().format == "jpeg"
+
+
+class TestOutputFormatEncoding:
+    """The encoder actually reaches Poppler and changes the bytes on disk."""
+
+    @patch("pptx_builder.core.convert_from_path")
+    def test_jpegopt_passed_for_jpeg(self, mock_cv, tmp_path):
+        pdf = tmp_path / "t.pdf"
+        pdf.touch()
+        mock_cv.return_value = []
+        convert_pdf_to_images(pdf, dpi=100, fmt="jpeg", quality=70)
+        kwargs = mock_cv.call_args.kwargs
+        assert kwargs["fmt"] == "jpeg"
+        assert kwargs["jpegopt"] == {"quality": 70, "optimize": True, "progressive": True}
+
+    @patch("pptx_builder.core.convert_from_path")
+    def test_jpegopt_absent_for_png(self, mock_cv, tmp_path):
+        pdf = tmp_path / "t.pdf"
+        pdf.touch()
+        mock_cv.return_value = []
+        convert_pdf_to_images(pdf, dpi=100, fmt="png", quality=70)
+        kwargs = mock_cv.call_args.kwargs
+        assert kwargs["fmt"] == "png"
+        assert "jpegopt" not in kwargs
+
+    @patch("pptx_builder.core.convert_from_path")
+    def test_unsupported_format_raises(self, mock_cv, tmp_path):
+        pdf = tmp_path / "t.pdf"
+        pdf.touch()
+        with pytest.raises(ValueError, match="Unsupported output format"):
+            convert_pdf_to_images(pdf, dpi=100, fmt="tiff")
+        mock_cv.assert_not_called()
+
+    @pytest.mark.integration
+    def test_real_encoding_magic_bytes(self, tmp_path):
+        # Assert on actual bytes, not the filename suffix.
+        pdf = _make_pdf(tmp_path / "real.pdf", pages=2)
+        jpeg_pages = convert_pdf_to_images(pdf, dpi=72, fmt="jpeg", quality=85)
+        png_pages = convert_pdf_to_images(pdf, dpi=72, fmt="png")
+        try:
+            assert jpeg_pages and png_pages
+            assert jpeg_pages[0].read_bytes()[:3] == b"\xff\xd8\xff"
+            assert png_pages[0].read_bytes()[:4] == b"\x89PNG"
+        finally:
+            shutil.rmtree(jpeg_pages[0].parent, ignore_errors=True)
+            shutil.rmtree(png_pages[0].parent, ignore_errors=True)
+
+    @pytest.mark.integration
+    def test_jpeg_smaller_than_png_at_matched_dpi(self, tmp_path):
+        # Relative comparison only — absolute byte counts depend on Poppler build.
+        pdf = _make_pdf(tmp_path / "sized.pdf", pages=2)
+        jpeg_pages = convert_pdf_to_images(pdf, dpi=100, fmt="jpeg", quality=85)
+        png_pages = convert_pdf_to_images(pdf, dpi=100, fmt="png")
+        try:
+            jpeg_bytes = sum(p.stat().st_size for p in jpeg_pages)
+            png_bytes = sum(p.stat().st_size for p in png_pages)
+            assert jpeg_bytes < png_bytes
+        finally:
+            shutil.rmtree(jpeg_pages[0].parent, ignore_errors=True)
+            shutil.rmtree(png_pages[0].parent, ignore_errors=True)
+
+
+class TestPromptOutputFormat:
+    def test_jpeg_with_default_quality(self):
+        with patch("builtins.input", side_effect=["1", ""]):
+            assert prompt_output_format() == ("jpeg", DEFAULT_QUALITY)
+
+    def test_empty_choice_defaults_to_jpeg(self):
+        with patch("builtins.input", side_effect=["", ""]):
+            assert prompt_output_format() == ("jpeg", DEFAULT_QUALITY)
+
+    def test_png_skips_quality_prompt(self):
+        # Only one input consumed — no quality question for PNG.
+        with patch("builtins.input", side_effect=["2"]):
+            assert prompt_output_format() == ("png", DEFAULT_QUALITY)
+
+    def test_custom_quality(self):
+        with patch("builtins.input", side_effect=["1", "60"]):
+            assert prompt_output_format() == ("jpeg", 60)
+
+    def test_reprompts_on_invalid(self, capsys):
+        with patch("builtins.input", side_effect=["9", "1", "abc", "500", "75"]):
+            assert prompt_output_format() == ("jpeg", 75)
+        assert "Invalid choice" in capsys.readouterr().out
+
+    def test_output_formats_constant(self):
+        assert OUTPUT_FORMATS == ("png", "jpeg")
 
 
 class TestBuildInfoStrip:
@@ -628,7 +855,8 @@ class TestMainEntrypoint:
         _make_image(page)
         with ExitStack() as stack:
             stack.enter_context(patch("sys.argv", ["pb", "--verbose"]))
-            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            # path, slide size, fit mode, format (JPEG), quality (accept default)
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1", "1", ""]))
             stack.enter_context(
                 patch("pptx_builder.core.convert_pdf_to_images", return_value=[page])
             )
@@ -646,7 +874,8 @@ class TestMainEntrypoint:
         _make_image(page)
         with ExitStack() as stack:
             stack.enter_context(patch("sys.argv", ["pb"]))
-            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            # path, slide size, fit mode, format (JPEG), quality (accept default)
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1", "1", ""]))
             stack.enter_context(
                 patch("pptx_builder.core.convert_pdf_to_images", return_value=[page])
             )
@@ -666,7 +895,8 @@ class TestMainEntrypoint:
         out_name = str(tmp_path / "custom")
         with ExitStack() as stack:
             stack.enter_context(patch("sys.argv", ["pb", "--output", out_name]))
-            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            # path, slide size, fit mode, format (JPEG), quality (accept default)
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1", "1", ""]))
             stack.enter_context(
                 patch("pptx_builder.core.convert_pdf_to_images", return_value=[page])
             )
@@ -723,7 +953,8 @@ class TestMainEntrypoint:
         _make_image(page)
         with ExitStack() as stack:
             stack.enter_context(patch("sys.argv", ["pb"]))
-            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            # path, slide size, fit mode, format (JPEG), quality (accept default)
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1", "1", ""]))
             stack.enter_context(
                 patch("pptx_builder.core.convert_pdf_to_images", return_value=[page])
             )
@@ -741,7 +972,8 @@ class TestMainEntrypoint:
         _make_image(page)
         with ExitStack() as stack:
             stack.enter_context(patch("sys.argv", ["pb"]))
-            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1"]))
+            # path, slide size, fit mode, format (JPEG), quality (accept default)
+            stack.enter_context(patch("builtins.input", side_effect=[str(pdf), "1", "1", "1", ""]))
             stack.enter_context(
                 patch("pptx_builder.core.convert_pdf_to_images", return_value=[page])
             )

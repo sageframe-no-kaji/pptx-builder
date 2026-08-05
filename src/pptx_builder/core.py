@@ -21,6 +21,7 @@ Notes:
     - No part of the image is stretched; scaling is always proportional.
 """
 
+import os
 import sys
 import logging
 from pathlib import Path
@@ -61,6 +62,66 @@ ALLOWED_EXTS = {
     ".heic",
     ".heif",
 }
+
+# -----------------------------
+# Output encoding for rasterized PDF pages
+#
+# These are user preferences, honored by both the CLI and the web UI. They are
+# distinct from the PPTX_MAX_* ceilings in web.py, which bound the public demo
+# tier only and must not apply to a local CLI run.
+#
+# Precedence, lowest to highest: built-in default -> environment -> explicit flag.
+# A malformed or out-of-range environment value falls back to the built-in
+# default rather than raising, so the process starts even with a bad environment.
+# -----------------------------
+OUTPUT_FORMATS = ("png", "jpeg")
+
+
+def _normalize_format(value: str) -> str:
+    """Lowercase a format name and fold the 'jpg' alias onto 'jpeg'."""
+    normalized = value.strip().lower()
+    return "jpeg" if normalized == "jpg" else normalized
+
+
+def _env_int(name: str, fallback: int, minimum: int, maximum: int) -> int:
+    """Read an int from the environment, falling back on absent/invalid values."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return fallback
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Ignoring %s=%r: not an integer. Using %d.", name, raw, fallback)
+        return fallback
+    if not minimum <= value <= maximum:
+        logger.warning(
+            "Ignoring %s=%d: outside %d-%d. Using %d.", name, value, minimum, maximum, fallback
+        )
+        return fallback
+    return value
+
+
+def _env_format(name: str, fallback: str) -> str:
+    """Read an output format from the environment, falling back on invalid values."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return fallback
+    value = _normalize_format(raw)
+    if value not in OUTPUT_FORMATS:
+        logger.warning(
+            "Ignoring %s=%r: expected one of %s. Using %r.",
+            name,
+            raw,
+            ", ".join(OUTPUT_FORMATS),
+            fallback,
+        )
+        return fallback
+    return value
+
+
+DEFAULT_DPI = _env_int("PPTX_DPI", 200, minimum=1, maximum=2400)
+DEFAULT_FORMAT = _env_format("PPTX_FORMAT", "jpeg")
+DEFAULT_QUALITY = _env_int("PPTX_QUALITY", 85, minimum=1, maximum=100)
 
 
 def prompt_input_path() -> Path:
@@ -113,6 +174,39 @@ def prompt_fit_mode() -> str:
         if choice == "2":
             return "fill"
         print("✗ Invalid choice. Please enter 1 or 2.\n")
+
+
+def prompt_output_format() -> Tuple[str, int]:
+    """
+    Ask which encoder to use for rasterized PDF pages, and the JPEG quality.
+
+    Returns (format, quality). Quality is only asked for when JPEG is chosen;
+    for PNG the default is returned unused.
+    """
+    print("\nChoose output image format (PDF pages only):")
+    print(f"  1) JPEG — much smaller files (default, quality {DEFAULT_QUALITY})")
+    print("  2) PNG  — lossless, much larger files")
+    while True:
+        choice = input("Enter 1 or 2 [1]: ").strip()
+        if choice in ("", "1"):
+            fmt = "jpeg"
+            break
+        if choice == "2":
+            return "png", DEFAULT_QUALITY
+        print("✗ Invalid choice. Please enter 1 or 2.\n")
+
+    while True:
+        raw = input(f"JPEG quality 1-100 [{DEFAULT_QUALITY}]: ").strip()
+        if not raw:
+            return fmt, DEFAULT_QUALITY
+        try:
+            quality = int(raw)
+        except ValueError:
+            print("✗ Please enter a whole number.\n")
+            continue
+        if 1 <= quality <= 100:
+            return fmt, quality
+        print("✗ Quality must be between 1 and 100.\n")
 
 
 def list_images(folder: Path) -> List[Path]:
@@ -240,6 +334,17 @@ def build_presentation(
 import argparse  # noqa: E402
 
 
+def _quality_arg(value: str) -> int:
+    """argparse type for --quality: an int in 1-100, rejected rather than clamped."""
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not an integer")
+    if not 1 <= parsed <= 100:
+        raise argparse.ArgumentTypeError(f"{parsed} is outside the valid range 1-100")
+    return parsed
+
+
 def parse_cli_args():
     """Parse command-line arguments for batch, recursive, or quiet runs."""
     parser = argparse.ArgumentParser(
@@ -263,7 +368,30 @@ def parse_cli_args():
     )
 
     parser.add_argument(
-        "--dpi", type=int, default=300, help="DPI for PDF rendering (default: 300)."
+        "--dpi",
+        type=int,
+        default=DEFAULT_DPI,
+        help=f"DPI for PDF rendering (default: {DEFAULT_DPI}).",
+    )
+
+    parser.add_argument(
+        "--format",
+        dest="format",
+        type=_normalize_format,
+        choices=list(OUTPUT_FORMATS),
+        default=DEFAULT_FORMAT,
+        help=(
+            f"Encoder for rasterized PDF pages (default: {DEFAULT_FORMAT}). "
+            "jpeg is far smaller; png is lossless. Does not affect image-folder input."
+        ),
+    )
+
+    parser.add_argument(
+        "--quality",
+        type=_quality_arg,
+        default=DEFAULT_QUALITY,
+        metavar="1-100",
+        help=(f"JPEG quality (default: {DEFAULT_QUALITY}). " "Ignored when --format is png."),
     )
 
     parser.add_argument(
@@ -311,25 +439,50 @@ def detect_input_type(path: Path) -> str:
     return "unknown"
 
 
-def convert_pdf_to_images(pdf_path: Path, dpi: int, max_pages: int = 0) -> List[Path]:
-    """Convert PDF pages to PNG files in a temporary directory.
+def convert_pdf_to_images(
+    pdf_path: Path,
+    dpi: int,
+    max_pages: int = 0,
+    fmt: str = DEFAULT_FORMAT,
+    quality: int = DEFAULT_QUALITY,
+) -> List[Path]:
+    """Convert PDF pages to image files in a temporary directory.
 
     Uses pdf2image's output_folder + paths_only mode to stream pages directly
     to disk without accumulating all decoded pixels in RAM simultaneously.
     Callers are responsible for cleaning up the returned paths' parent directory.
     max_pages=0 means no limit.
+
+    fmt selects the encoder ('jpeg' or 'png'; 'jpg' is accepted as an alias).
+    quality applies to JPEG only and is ignored for PNG, so callers may pass it
+    unconditionally.
     """
     import tempfile  # noqa: E402
 
-    logger.debug(f"Converting PDF: {pdf_path} at {dpi} DPI")
+    resolved_fmt = _normalize_format(fmt)
+    if resolved_fmt not in OUTPUT_FORMATS:
+        raise ValueError(
+            f"Unsupported output format {fmt!r}. Expected one of: {', '.join(OUTPUT_FORMATS)}."
+        )
+
+    logger.debug(
+        "Converting PDF: %s at %d DPI as %s%s",
+        pdf_path,
+        dpi,
+        resolved_fmt,
+        f" q{quality}" if resolved_fmt == "jpeg" else "",
+    )
 
     temp_dir = Path(tempfile.mkdtemp(prefix="pptx_pdf_"))
     kwargs: dict = dict(
         dpi=dpi,
         output_folder=str(temp_dir),
-        fmt="png",
+        fmt=resolved_fmt,
         paths_only=True,
     )
+    if resolved_fmt == "jpeg":
+        # Passed through to Poppler's pdftoppm -jpeg by pdf2image.
+        kwargs["jpegopt"] = {"quality": quality, "optimize": True, "progressive": True}
     if max_pages > 0:
         kwargs["last_page"] = max_pages
     try:
@@ -365,7 +518,14 @@ def pdf_first_page_size_inches(pdf_path: Path) -> Tuple[float, float]:
         return (w_in, h_in)
 
 
-def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None:
+def process_folder(
+    folder: Path,
+    recursive: bool,
+    dpi: int,
+    quiet: bool,
+    fmt: str = DEFAULT_FORMAT,
+    quality: int = DEFAULT_QUALITY,
+) -> None:
     """Process all PDFs and/or images in a folder into PPTX files."""
     pdfs = sorted(folder.glob("*.pdf"))
     imgs = [p for p in folder.iterdir() if p.suffix.lower() in ALLOWED_EXTS]
@@ -375,7 +535,7 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
     if recursive:
         for sub in folder.iterdir():
             if sub.is_dir():
-                process_folder(sub, recursive, dpi, quiet)
+                process_folder(sub, recursive, dpi, quiet, fmt, quality)
 
     # If both PDFs and images exist — prioritize PDFs, warn user
     if pdfs and imgs:
@@ -397,7 +557,7 @@ def process_folder(folder: Path, recursive: bool, dpi: int, quiet: bool) -> None
             print(f"📄 Converting PDF → PPTX: {item.name} → {out_name}")
             pdf_temp_dir = None
             try:
-                pages = convert_pdf_to_images(item, dpi=dpi)
+                pages = convert_pdf_to_images(item, dpi=dpi, fmt=fmt, quality=quality)
                 if pages:
                     pdf_temp_dir = pages[0].parent
                 w_in, h_in = pdf_first_page_size_inches(item)
@@ -468,6 +628,12 @@ def main():
         width_in, height_in = prompt_slide_size()
         mode = prompt_fit_mode()  # Let user choose fit or fill
 
+        # Encoder only affects rasterized PDF pages; image folders embed as-is.
+        if kind == "pdf":
+            out_fmt, out_quality = prompt_output_format()
+        else:
+            out_fmt, out_quality = args.format, args.quality
+
         print("\nSummary:")
         print(f"  Source: {in_path}")
         file_type = "PDF file" if kind == "pdf" else "Image folder"
@@ -475,12 +641,19 @@ def main():
         print(f'  Slide size: {width_in:.2f}" x {height_in:.2f}"')
         placement = "Fit whole image (no crop)" if mode == "fit" else "Crop to fill (no whitespace)"
         print(f"  Placement : {placement}")
+        if kind == "pdf":
+            encoding = out_fmt.upper()
+            if out_fmt == "jpeg":
+                encoding += f" q{out_quality}"
+            print(f"  Encoding  : {encoding} at {args.dpi} DPI")
         print(f"  Output file: {output_path}\n")
 
         temp_dir = None
         try:
             if kind == "pdf":
-                pages = convert_pdf_to_images(in_path, dpi=args.dpi)
+                pages = convert_pdf_to_images(
+                    in_path, dpi=args.dpi, fmt=out_fmt, quality=out_quality
+                )
                 # Store temp dir for cleanup
                 if pages:
                     temp_dir = pages[0].parent
@@ -535,7 +708,9 @@ def main():
             print(f"📄 [CLI] Converting PDF → PPTX: {path.name}")
             temp_dir = None
             try:
-                pages = convert_pdf_to_images(path, dpi=args.dpi)
+                pages = convert_pdf_to_images(
+                    path, dpi=args.dpi, fmt=args.format, quality=args.quality
+                )
                 if pages:
                     temp_dir = pages[0].parent
 
@@ -581,7 +756,14 @@ def main():
             if not args.quiet:
                 print(f"🗂️  [CLI] Processing folder: {path}")
             try:
-                process_folder(path, recursive=args.recursive, dpi=args.dpi, quiet=args.quiet)
+                process_folder(
+                    path,
+                    recursive=args.recursive,
+                    dpi=args.dpi,
+                    quiet=args.quiet,
+                    fmt=args.format,
+                    quality=args.quality,
+                )
             except Exception as e:
                 print(f"✗ Folder failed: {path} ({e})")
 
