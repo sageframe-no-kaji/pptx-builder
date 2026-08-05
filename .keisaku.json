@@ -34,12 +34,12 @@
       ],
       "tech_stack": "Python (python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif, tqdm)",
       "created": "2025-10-23",
-      "last_updated": "2026-07-14",
+      "last_updated": "2026-08-04",
       "conceived": "2025-10-23",
-      "short_description": "A local-first converter that turns PDFs and image folders into clean, DPI-controlled PowerPoint presentations without uploading a single file.",
+      "short_description": "A local-first converter that turns PDFs and image folders into clean, size-controlled PowerPoint presentations without uploading a single file.",
       "substantive_description": [
-        "Online converters require you to upload your documents and then hand back fragile \"editable\" results that fall apart on anything complex. PPTX Builder refuses both: it processes entirely on your own machine and produces consistent raster output you control. It renders PDFs or organizes image folders into one-slide-per-page decks with configurable DPI, a range of aspect ratios and paper sizes, and fit-or-fill placement, handling batch and recursive folders. The primary interface is a pip-installable Python CLI, with an optional Gradio web UI and a Docker deployment carrying environment-variable limits for self-hosted instances. The problem it solves is small and common — private, predictable document-to-slides conversion — and it solves it without asking you to trust a server.",
-        "Python 3.8+ with python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif, and tqdm; optional Gradio web UI; Docker-deployable with poppler-utils. Published to PyPI as sageframe-pptx-builder (v0.2.1), with a live demo at pptx.sageframe.net."
+        "Online converters require you to upload your documents and then hand back fragile \"editable\" results that fall apart on anything complex. PPTX Builder refuses both: it processes entirely on your own machine and produces consistent raster output you control. It renders PDFs or organizes image folders into one-slide-per-page decks with configurable DPI and encoder, a range of aspect ratios and paper sizes, and fit-or-fill placement, handling batch and recursive folders. Output size is the lever most converters hide: PPTX Builder exposes both halves of it, so a 43-page deck is 14 MB at the defaults or 83 MB in lossless PNG at 300 DPI, and the choice is yours rather than the tool's. The primary interface is a pip-installable Python CLI, with an optional Gradio web UI and a Docker deployment carrying environment-variable limits for self-hosted instances. The problem it solves is small and common — private, predictable document-to-slides conversion — and it solves it without asking you to trust a server.",
+        "Python 3.8+ with python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif, and tqdm; optional Gradio web UI; Docker-deployable with poppler-utils. Published to PyPI as sageframe-pptx-builder (v0.3.0), which made the page encoder configurable — `--format`, `--quality`, and `PPTX_FORMAT`/`PPTX_QUALITY`/`PPTX_DPI` — and moved the defaults to 200 DPI JPEG q85. A capped public demo runs at pptx.sageframe.net; an uncapped instance runs on the homelab at pptx-full.sageframe.net."
       ],
       "images": {
         "gallery": []
@@ -48,12 +48,12 @@
       "usage": "others",
       "state": {
         "stage": "production",
-        "last": "v0.2.1 shipped: env-var config for limits (file size, upload count, PDF page cap, DPI cap), Docker/self-hosted documentation, `.env.example`, project icon, web UI revamp with ATM brand system, 100% test coverage, PyPI publish workflow, Python 3.8 compatibility fixes. Last meaningful commit: `bde691c` (\"Docs, env example, and icon for v0.2.1\", 2026-06-24).",
-        "next": "unset — practitioner to point (K6 seeded retroactively). Candidates from private notes: v0.3 feature work (see `private/gameplan.md`) or hardening/promotion to beta status. No open ho documents found.",
-        "as_of": "2026-07-09"
+        "last": "**ho-01 closed, merged, published, and deployed twice.** Output format and quality are threaded through the pipeline, CLI, interactive prompt, and Gradio UI; the hardcoded `fmt=\"png\"` literal is gone. Bare `pptx-builder -i deck.pdf` produces 200 DPI JPEG q85 — 13.8 MB on a 43-page deck against 83.1 MB for the previous 300 DPI PNG default. Added `--format`, `--quality`, `PPTX_FORMAT`, `PPTX_QUALITY`, `PPTX_DPI`, `PPTX_MAX_QUALITY`. 136 tests, coverage 100%, black/mypy clean, flake8 identical to baseline. Merged as `3583e91`; **0.3.0 published to PyPI** via the `v0.3.0` tag. Also fixed a latent Dockerfile defect (`0a66448`): the dependency-priming layer installed a stub `__init__.py` and setuptools then skipped re-copying real sources because `COPY` preserves older mtimes — pip reported the right version while the package exposed nothing. Now cleared before reinstall with a build-time import assertion. **Two instances live:** the capped public demo (miseba, `pptx.sageframe.net`, 20 MB/20 files/20 pages/300 DPI) and a new uncapped practitioner instance (tenzo, `pptx-full.sageframe.net`, 2000 MB/500 files/1200 DPI/∞ pages, scratch on `rpool/sage/tenzo/pptx-builder`, LAN-only, on Flame). Deployment tracked in sageframe-config `8125b1d`.",
+        "next": "unset; practitioner to point. Candidates: reconstruct the absent Kamae chain (K1/K2/K4), or give `ho-process/` a remote so the Kamae documents are backed up.",
+        "as_of": "2026-08-05"
       },
       "_keisaku": {
-        "generated_at": "2026-07-19T11:32:58",
+        "generated_at": "2026-08-05T15:30:55",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",
@@ -78,10 +78,10 @@
             "pillow-heif",
             "tqdm"
           ],
-          "short_description": "A local-first converter that turns PDFs and image folders into clean, DPI-controlled PowerPoint presentations without uploading a single file.",
+          "short_description": "A local-first converter that turns PDFs and image folders into clean, size-controlled PowerPoint presentations without uploading a single file.",
           "substantive_description": [
-            "Online converters require you to upload your documents and then hand back fragile \"editable\" results that fall apart on anything complex. PPTX Builder refuses both: it processes entirely on your own machine and produces consistent raster output you control. It renders PDFs or organizes image folders into one-slide-per-page decks with configurable DPI, a range of aspect ratios and paper sizes, and fit-or-fill placement, handling batch and recursive folders. The primary interface is a pip-installable Python CLI, with an optional Gradio web UI and a Docker deployment carrying environment-variable limits for self-hosted instances. The problem it solves is small and common — private, predictable document-to-slides conversion — and it solves it without asking you to trust a server.",
-            "Python 3.8+ with python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif, and tqdm; optional Gradio web UI; Docker-deployable with poppler-utils. Published to PyPI as sageframe-pptx-builder (v0.2.1), with a live demo at pptx.sageframe.net."
+            "Online converters require you to upload your documents and then hand back fragile \"editable\" results that fall apart on anything complex. PPTX Builder refuses both: it processes entirely on your own machine and produces consistent raster output you control. It renders PDFs or organizes image folders into one-slide-per-page decks with configurable DPI and encoder, a range of aspect ratios and paper sizes, and fit-or-fill placement, handling batch and recursive folders. Output size is the lever most converters hide: PPTX Builder exposes both halves of it, so a 43-page deck is 14 MB at the defaults or 83 MB in lossless PNG at 300 DPI, and the choice is yours rather than the tool's. The primary interface is a pip-installable Python CLI, with an optional Gradio web UI and a Docker deployment carrying environment-variable limits for self-hosted instances. The problem it solves is small and common — private, predictable document-to-slides conversion — and it solves it without asking you to trust a server.",
+            "Python 3.8+ with python-pptx, Pillow, PyMuPDF, pdf2image, pillow-heif, and tqdm; optional Gradio web UI; Docker-deployable with poppler-utils. Published to PyPI as sageframe-pptx-builder (v0.3.0), which made the page encoder configurable — `--format`, `--quality`, and `PPTX_FORMAT`/`PPTX_QUALITY`/`PPTX_DPI` — and moved the defaults to 200 DPI JPEG q85. A capped public demo runs at pptx.sageframe.net; an uncapped instance runs on the homelab at pptx-full.sageframe.net."
           ]
         },
         "contract_issues": []
