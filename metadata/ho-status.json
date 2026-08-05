@@ -1,0 +1,19 @@
+{
+  "project": "image_2_ppt",
+  "generated": "2026-08-04",
+  "generator": "manual",
+  "note": "Work through v0.2.1 predates per-ho documentation and has no ho documents.",
+  "hos": [
+    {
+      "ho": "01",
+      "title": "Output format and quality control",
+      "description": "Threads image format and JPEG quality through the raster pipeline, CLI, and web UI, and changes the bare-command defaults to 200 DPI JPEG q85.",
+      "shape": "ha",
+      "status": "complete",
+      "kamae": 5,
+      "agent-tasks": ["Ho-01-AT-01.md", "Ho-01-AT-02.md"],
+      "commits": ["a18ac66", "2d2a21d"],
+      "branch": "ho-01-output-format"
+    }
+  ]
+}
