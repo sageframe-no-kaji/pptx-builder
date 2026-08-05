@@ -43,3 +43,9 @@ test_make_ppt.py
 *.pptx
 temp_*
 pptx_pdf_*/
+
+# Build artifacts — a stale egg-info or build/ from the host confuses
+# setuptools' incremental copy inside the image.
+build/
+dist/
+*.egg-info/

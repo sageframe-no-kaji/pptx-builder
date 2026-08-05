@@ -21,8 +21,17 @@ RUN pip install --no-cache-dir .[web]
 # Now copy actual source code
 COPY src/ src/
 
-# Reinstall package (fast, dependencies already cached)
-RUN pip install --no-cache-dir --force-reinstall --no-deps .[web]
+# Reinstall package (fast, dependencies already cached).
+#
+# Clear the build cache and egg-info left by the dependency-priming install
+# above first. That install ran against an empty stub __init__.py, and
+# setuptools' build_py only re-copies a source file when its mtime is newer
+# than the cached copy in build/lib. COPY preserves source mtimes, so a source
+# tree older than the image layer silently ships the stub — the package
+# installs, reports the right version to pip, and exposes nothing.
+RUN rm -rf build src/*.egg-info && \
+    pip install --no-cache-dir --force-reinstall --no-deps .[web] && \
+    python -c "import pptx_builder; assert pptx_builder.__version__, 'empty __init__ shipped'"
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \
