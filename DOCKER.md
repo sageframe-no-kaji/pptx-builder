@@ -72,6 +72,7 @@ The web UI enforces limits via environment variables. Self-hosted deployments ha
 | `PPTX_MAX_FILES` | `100` | Max number of files per batch |
 | `PPTX_MAX_DPI` | `600` | Max DPI for PDF conversion |
 | `PPTX_MAX_PDF_PAGES` | `0` | Max pages per PDF (`0` = unlimited) |
+| `PPTX_MAX_QUALITY` | `100` | Max JPEG quality a visitor may select (`100` = uncapped) |
 
 Example — restricting a public demo:
 
@@ -81,9 +82,30 @@ environment:
   - PPTX_MAX_FILES=20
   - PPTX_MAX_DPI=300
   - PPTX_MAX_PDF_PAGES=20
+  - PPTX_MAX_QUALITY=85
 ```
 
 See `.env.example` for a copy-paste starting point.
+
+### Configure Output Encoding
+
+These are a different kind of setting: not ceilings on what a visitor may
+request, but the defaults the conversion uses when nothing says otherwise. They
+are honored by the CLI as well as the web UI.
+
+| Variable | Default | Description |
+|---|---|---|
+| `PPTX_FORMAT` | `jpeg` | Encoder for PDF pages — `jpeg` or `png` |
+| `PPTX_QUALITY` | `85` | JPEG quality, 1–100 |
+| `PPTX_DPI` | `200` | Rendering DPI when none is given |
+
+Output size is the product of DPI and encoder. A 43-page deck is roughly 14 MB
+at the defaults and roughly 83 MB at `PPTX_FORMAT=png` with 300 DPI.
+
+**On an uncapped deployment**, leaving `PPTX_MAX_DPI=600` and
+`PPTX_MAX_QUALITY=100` together lets a visitor generate downloads in the
+hundreds of megabytes. Cap at least one of DPI, page count, or quality on any
+tier reachable by people you do not know.
 
 ---
 

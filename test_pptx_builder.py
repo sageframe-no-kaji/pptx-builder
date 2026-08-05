@@ -49,9 +49,11 @@ from pptx_builder.web import (
     cleanup_temp_files,
     cleanup_old_files,
     _build_info_strip,
+    _quality_visibility,
     SLIDE_SIZE_OPTIONS,
     MAX_FILE_SIZE,
     MAX_FILES,
+    MAX_QUALITY,
 )
 import gradio as gr
 
@@ -1340,6 +1342,95 @@ class TestWebProcessFiles:
 
 
 # ─── web.py launch_app ────────────────────────────────────────────────────────
+
+
+class TestWebOutputFormat:
+    """Web UI encoding controls reach the pipeline (ho-01 AT-02)."""
+
+    def test_process_files_passes_format_and_quality(self, tmp_path):
+        pdf = tmp_path / "d.pdf"
+        pdf.touch()
+        page = tmp_path / "p.png"
+        _make_image(page)
+        with ExitStack() as stack:
+            mock_convert = stack.enter_context(
+                patch("pptx_builder.web.convert_pdf_to_images", return_value=[page])
+            )
+            stack.enter_context(
+                patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(11.0, 8.5))
+            )
+            stack.enter_context(patch("pptx_builder.web.build_presentation"))
+            process_files(
+                [str(pdf)],
+                "16:9 (Widescreen)",
+                "Fit whole image",
+                dpi=200,
+                out_format="png",
+                quality=70,
+            )
+        kwargs = mock_convert.call_args.kwargs
+        assert kwargs["fmt"] == "png"
+        assert kwargs["quality"] == 70
+
+    def test_process_files_clamps_quality_to_ceiling(self, tmp_path):
+        pdf = tmp_path / "d.pdf"
+        pdf.touch()
+        page = tmp_path / "p.png"
+        _make_image(page)
+        with ExitStack() as stack:
+            stack.enter_context(patch("pptx_builder.web.MAX_QUALITY", 80))
+            mock_convert = stack.enter_context(
+                patch("pptx_builder.web.convert_pdf_to_images", return_value=[page])
+            )
+            stack.enter_context(
+                patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(11.0, 8.5))
+            )
+            stack.enter_context(patch("pptx_builder.web.build_presentation"))
+            process_files(
+                [str(pdf)],
+                "16:9 (Widescreen)",
+                "Fit whole image",
+                out_format="jpeg",
+                quality=100,
+            )
+        assert mock_convert.call_args.kwargs["quality"] == 80
+
+    def test_process_files_defaults_match_core(self, tmp_path):
+        pdf = tmp_path / "d.pdf"
+        pdf.touch()
+        page = tmp_path / "p.png"
+        _make_image(page)
+        with ExitStack() as stack:
+            mock_convert = stack.enter_context(
+                patch("pptx_builder.web.convert_pdf_to_images", return_value=[page])
+            )
+            stack.enter_context(
+                patch("pptx_builder.web.pdf_first_page_size_inches", return_value=(11.0, 8.5))
+            )
+            stack.enter_context(patch("pptx_builder.web.build_presentation"))
+            process_files([str(pdf)], "16:9 (Widescreen)", "Fit whole image")
+        kwargs = mock_convert.call_args.kwargs
+        assert kwargs["fmt"] == DEFAULT_FORMAT
+        assert kwargs["quality"] == min(DEFAULT_QUALITY, MAX_QUALITY)
+
+    def test_quality_visibility_follows_format(self):
+        assert _quality_visibility("jpeg")["visible"] is True
+        assert _quality_visibility("png")["visible"] is False
+
+    def test_info_strip_shows_quality_cap_when_set(self):
+        with patch("pptx_builder.web.MAX_QUALITY", 85):
+            assert "quality" in _build_info_strip()
+
+    def test_info_strip_omits_quality_cap_when_uncapped(self):
+        with patch("pptx_builder.web.MAX_QUALITY", 100):
+            assert "quality&nbsp;" not in _build_info_strip()
+
+
+class TestVersion:
+    def test_version_is_0_3_0(self):
+        import pptx_builder
+
+        assert pptx_builder.__version__ == "0.3.0"
 
 
 class TestWebLaunchApp:

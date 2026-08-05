@@ -15,6 +15,9 @@ from .core import (
     build_presentation,
     convert_pdf_to_images,
     pdf_first_page_size_inches,
+    DEFAULT_DPI,
+    DEFAULT_FORMAT,
+    DEFAULT_QUALITY,
 )
 from ._icon_data import ICON_DATA_URI
 
@@ -30,10 +33,18 @@ SLIDE_SIZE_OPTIONS = {
     'Tabloid (17" x 11")': (17.0, 11.0),
 }
 
+# Demo-tier ceilings. These bound what a web visitor may ask for and are
+# deliberately NOT shared with the CLI — a local run is not rate-limited.
+# The output-encoding defaults (DEFAULT_FORMAT/DEFAULT_QUALITY/DEFAULT_DPI) are
+# the opposite kind of setting: user preferences, imported from core.
 MAX_FILE_SIZE = int(os.environ.get("PPTX_MAX_FILE_MB", "50")) * 1024 * 1024
 MAX_FILES = int(os.environ.get("PPTX_MAX_FILES", "100"))
 MAX_DPI = int(os.environ.get("PPTX_MAX_DPI", "600"))
 MAX_PDF_PAGES = int(os.environ.get("PPTX_MAX_PDF_PAGES", "0"))  # 0 = unlimited
+# Caps JPEG quality, which bounds output size. 100 = uncapped. Quality and DPI
+# multiply: q100 at 600 DPI over many pages is how a download reaches hundreds
+# of megabytes, so an uncapped tier serving the public wants this set.
+MAX_QUALITY = int(os.environ.get("PPTX_MAX_QUALITY", "100"))
 TEMP_DIRS: List[Path] = []
 
 
@@ -62,8 +73,10 @@ def process_files(
     files: List[str],
     slide_size: str,
     fit_mode: str,
-    dpi: int = 150,
+    dpi: int = DEFAULT_DPI,
     output_name: str = "",
+    out_format: str = DEFAULT_FORMAT,
+    quality: int = DEFAULT_QUALITY,
 ) -> Optional[str]:
     if not files:
         return None
@@ -97,7 +110,13 @@ def process_files(
             file_path = Path(file)
             if file_path.suffix.lower() == ".pdf":
                 has_pdf = True
-                pdf_images = convert_pdf_to_images(file_path, dpi=dpi, max_pages=MAX_PDF_PAGES)
+                pdf_images = convert_pdf_to_images(
+                    file_path,
+                    dpi=dpi,
+                    max_pages=MAX_PDF_PAGES,
+                    fmt=out_format,
+                    quality=min(quality, MAX_QUALITY),
+                )
                 # Track the PDF temp dir so both atexit and cleanup_old_files collect it.
                 if pdf_images:
                     TEMP_DIRS.append(pdf_images[0].parent)
@@ -175,6 +194,11 @@ _HEADER = f"""
 """
 
 
+def _quality_visibility(selected_format: str):
+    """Show the JPEG quality slider only when JPEG is the selected encoder."""
+    return gr.update(visible=selected_format == "jpeg")
+
+
 def _build_info_strip() -> str:
     mb = MAX_FILE_SIZE // (1024 * 1024)
     parts = [f"{mb}&nbsp;MB per file", f"{MAX_FILES} files max"]
@@ -182,6 +206,8 @@ def _build_info_strip() -> str:
         parts.append(f"{MAX_DPI}&nbsp;DPI max")
     if MAX_PDF_PAGES > 0:
         parts.append(f"{MAX_PDF_PAGES} pages per PDF")
+    if MAX_QUALITY < 100:
+        parts.append(f"quality&nbsp;{MAX_QUALITY} max")
     limits = " &middot; ".join(parts)
     return f"""
 <div class="atm-info-strip-wrap">
@@ -847,9 +873,22 @@ with gr.Blocks(title="PPTX Builder") as app:
                 dpi = gr.Slider(
                     minimum=150,
                     maximum=MAX_DPI,
-                    value=min(150, MAX_DPI),
+                    value=min(DEFAULT_DPI, MAX_DPI),
                     step=50,
                     label="PDF conversion DPI",
+                )
+                out_format = gr.Radio(
+                    choices=[("JPEG — smaller files", "jpeg"), ("PNG — lossless", "png")],
+                    value=DEFAULT_FORMAT,
+                    label="Page encoding (PDF input only)",
+                )
+                quality = gr.Slider(
+                    minimum=50,
+                    maximum=MAX_QUALITY,
+                    value=min(DEFAULT_QUALITY, MAX_QUALITY),
+                    step=5,
+                    label="JPEG quality",
+                    visible=DEFAULT_FORMAT == "jpeg",
                 )
                 output_name = gr.Textbox(
                     label="Output filename",
@@ -862,9 +901,17 @@ with gr.Blocks(title="PPTX Builder") as app:
                 gr.HTML(_HOW_IT_WORKS)
                 output = gr.File(label="Download PPTX")
 
+        # Quality only applies to JPEG; hide it entirely under PNG rather than
+        # leaving a control that silently does nothing.
+        out_format.change(
+            fn=_quality_visibility,
+            inputs=out_format,
+            outputs=quality,
+        )
+
         submit_btn.click(
             fn=process_files,
-            inputs=[files, slide_size, fit_mode, dpi, output_name],
+            inputs=[files, slide_size, fit_mode, dpi, output_name, out_format, quality],
             outputs=output,
         )
 

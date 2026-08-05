@@ -132,12 +132,53 @@ pptx-builder -i document.pdf --verbose
 
 * `-i, --input PATH` — Input file(s) or folder
 * `-o, --output NAME` — Output filename (single input only)
-* `--dpi DPI` — PDF rendering quality (default: 300)
+* `--dpi DPI` — PDF rendering quality (default: 200)
+* `--format {jpeg,png}` — Page encoding for PDF input (default: jpeg)
+* `--quality 1-100` — JPEG quality (default: 85; ignored when `--format png`)
 * `-r, --recursive` — Process subfolders
 * `--quiet` — Suppress prompts and non-critical output
 * `--force` — Overwrite existing files
 * `--verbose` — Enable debug logging
 * `-h, --help` — Show all options
+
+---
+
+### Output size
+
+Since 0.3.0, PDF pages are encoded as JPEG at quality 85 and 200 DPI by default.
+On a 43-page deck that is roughly 14 MB, against roughly 83 MB for the previous
+300 DPI PNG default.
+
+Two levers control this, and they compound:
+
+```bash
+# Smaller — screen reading
+pptx-builder -i deck.pdf --dpi 150 --quality 75
+
+# Larger, lossless — archival or flat-colour diagrams
+pptx-builder -i deck.pdf --format png --dpi 300
+```
+
+JPEG is smaller on photographic and gradient-heavy slides. On decks made
+entirely of flat-colour diagrams or screenshots, PNG can be the smaller of the
+two — try both if size matters and your content is graphical.
+
+Encoding applies to **PDF input only**. Image folders are embedded unchanged,
+in whatever format you supply.
+
+### Environment variables
+
+Defaults can be pinned without passing flags every time:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `PPTX_FORMAT` | `jpeg` | Encoder for PDF pages. Set `png` to restore pre-0.3.0 output. |
+| `PPTX_QUALITY` | `85` | JPEG quality, 1–100. |
+| `PPTX_DPI` | `200` | Rendering DPI when `--dpi` is not given. |
+
+An explicit flag always beats the environment variable, which beats the
+built-in default. A malformed value is ignored with a warning rather than
+failing the run.
 
 ---
 
@@ -235,7 +276,8 @@ pre-commit run --all-files
 
 ## Notes
 
-* 150–300 DPI recommended for most use cases (600 DPI is slower but sharper)
+* 150–300 DPI covers most use cases (600 DPI is slower and sharper). The
+  encoder usually matters more than DPI for file size — see [Output size](#output-size).
 * Large PDFs (30+ pages) at 300 DPI may take 30–60 seconds
 * Temporary files are cleaned up automatically; no persistent storage is used
 * HEIC/HEIF require `pillow-heif` (included)
